@@ -43,7 +43,7 @@ export class SalesFloor {
       this.eco.notify.say(this.crowd.queue.length ? "Müşteri kasaya geliyor" : "Kasada bekleyen yok")
       return
     }
-    this.eco.earn(head.bill, playerPos)
+    this.eco.earn(head.bill, playerPos, "sales")
     this.eco.bumpRep(0.08)
     this.eco.notify.say(`Satış: ${head.basket} ürün`)
     head.pawn.setCarry("#e8dcc4")
@@ -54,7 +54,7 @@ export class SalesFloor {
     const stock = shelf.model.getConfig().stock
     if (stock >= 0.95) { this.eco.notify.say(`${shelf.label} zaten dolu`); return }
     const cost = Math.ceil((1 - stock) * RESTOCK_COST_FULL)
-    if (!this.eco.spend(cost, playerPos, "raf doldurmak")) return
+    if (!this.eco.spend(cost, playerPos, "raf doldurmak", "sales")) return
     shelf.model.configure({ stock: 1 })
     this.eco.notify.say(`${shelf.label} dolduruldu`)
   }
@@ -98,7 +98,7 @@ export class SalesFloor {
     } else if (c.state === "queued" || c.state === "toQueue") {
       c.patience -= dt
       if (c.patience <= 0) {
-        this.eco.notify.popup(c.pawn.root.position, "Çok bekledim!", "loss")
+        this.eco.notify.popup(c.pawn.root.position, "Çok bekledim!", "loss", "sales")
         this.eco.bumpRep(-0.3)
         this.crowd.leave(c)
       }
@@ -106,7 +106,7 @@ export class SalesFloor {
   }
 
   private emptyHanded(c: Buyer) {
-    this.eco.notify.popup(c.pawn.root.position, "Raflar boş!", "loss")
+    this.eco.notify.popup(c.pawn.root.position, "Raflar boş!", "loss", "sales")
     this.eco.bumpRep(-0.2)
     this.crowd.leave(c)
   }

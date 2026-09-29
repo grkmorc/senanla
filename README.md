@@ -2,7 +2,8 @@
 
 Vibe3D uyumlu küçük bir registry (4 model) ve bunu kullanan tıkla-yürü izometrik sahne.
 
-![Önizleme](docs/preview.png)
+![Sokak, gündüz](docs/preview.png)
+![Sokak, akşam](docs/preview-evening.png)
 
 **Canlı demo:** https://grkmorc.github.io/senanla/
 

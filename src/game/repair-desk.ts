@@ -43,7 +43,7 @@ export class RepairDesk {
       const c = this.job
       this.job = null
       this.eco.carry = null
-      this.eco.earn(REPAIR_FEE, playerPos)
+      this.eco.earn(REPAIR_FEE, playerPos, "repair")
       this.eco.bumpRep(0.3)
       this.eco.notify.say("Cihaz teslim edildi")
       c.pawn.setCarry("#6fcf7c")
@@ -111,7 +111,7 @@ export class RepairDesk {
       if (c.state === "leaving" || c.state === "new") continue
       c.patience -= dt
       if (c.patience > 0) continue
-      this.eco.notify.popup(c.pawn.root.position, c === this.job ? "Cihazımı geri ver!" : "Çok bekledim!", "loss")
+      this.eco.notify.popup(c.pawn.root.position, c === this.job ? "Cihazımı geri ver!" : "Çok bekledim!", "loss", "repair")
       this.eco.bumpRep(c === this.job ? -0.6 : -0.3)
       if (c === this.job) {
         this.job = null

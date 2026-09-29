@@ -81,12 +81,14 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
   const floating: { el: HTMLElement; at: Vector3; t: number; level: Level }[] = []
   const economy = new Economy({
     say: ui.say,
-    popup(at: Vector3, text: string, tone: Tone) {
+    popup(at: Vector3, text: string, tone: Tone, where: string) {
+      const level = levels[where as LevelId] ?? active
       const node = document.createElement("div")
       node.className = `pop pop-${tone}`
       node.textContent = text
+      node.hidden = level !== active
       ui.overlay.appendChild(node)
-      floating.push({ el: node, at: at.clone().setY(1.8), t: 0, level: active })
+      floating.push({ el: node, at: at.clone().setY(1.8), t: 0, level })
     },
   })
 

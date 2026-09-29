@@ -9,7 +9,8 @@ export type Tone = "gain" | "loss" | "info"
 
 export interface Notifier {
   say(msg: string): void
-  popup(at: Vector3, text: string, tone: Tone): void
+  /** `where` names the level the event happened in (a LevelId). */
+  popup(at: Vector3, text: string, tone: Tone, where: string): void
 }
 
 export const DAY_SECONDS = 180
@@ -47,21 +48,21 @@ export class Economy {
     }
   }
 
-  earn(amount: number, at: Vector3) {
+  earn(amount: number, at: Vector3, where: string) {
     this.money += amount
     this.revenueToday += amount
     this.servedToday++
-    this.notify.popup(at, `+₺${amount}`, "gain")
+    this.notify.popup(at, `+₺${amount}`, "gain", where)
   }
 
   /** Returns false (and explains why) when the player can't afford it. */
-  spend(amount: number, at: Vector3, what: string): boolean {
+  spend(amount: number, at: Vector3, what: string, where: string): boolean {
     if (this.money < amount) {
       this.notify.say(`Yetersiz para: ${what} için ₺${amount} gerekli`)
       return false
     }
     this.money -= amount
-    this.notify.popup(at, `-₺${amount}`, "loss")
+    this.notify.popup(at, `-₺${amount}`, "loss", where)
     return true
   }
 

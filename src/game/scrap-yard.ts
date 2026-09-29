@@ -40,7 +40,7 @@ export class ScrapYard {
   }
 
   buyPart(at: Vector3) {
-    if (!this.eco.spend(PART_PRICE, at, "yedek parça")) return
+    if (!this.eco.spend(PART_PRICE, at, "yedek parça", "scrap")) return
     this.eco.parts++
     this.eco.notify.say(`Parça alındı (${this.eco.parts} parça)`)
   }
@@ -57,7 +57,7 @@ export class ScrapYard {
           p.left--
           this.syncPile(p)
           this.eco.parts++
-          this.eco.notify.popup(p.spot, "+1 parça", "info")
+          this.eco.notify.popup(p.spot, "+1 parça", "info", "scrap")
           this.eco.notify.say(`Parça çıkarıldı (${this.eco.parts} parça)`)
         }
       }
