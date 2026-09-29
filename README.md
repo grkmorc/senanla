@@ -4,6 +4,8 @@ Vibe3D uyumlu küçük bir registry (4 model) ve bunu kullanan tıkla-yürü izo
 
 ![Önizleme](docs/preview.png)
 
+**Canlı demo:** https://grkmorc.github.io/senanla/
+
 ## Yapı
 
 ```text
@@ -47,3 +49,7 @@ shelf.parts.goods.anchor.add(myLabel)    // rebuild'den sağ çıkar
 shelf.materials.override("board", myWood) // instance > kit > varsayılan
 shelf.dispose()                           // idempotent; ödünç materyaller dispose edilmez
 ```
+
+## Yayın
+
+`main` dalına her push'ta `.github/workflows/pages.yml` tip kontrolü, coplanar kontrolü ve derlemeyi çalıştırır, ardından `dist/` klasörünü GitHub Pages'e yayınlar.
