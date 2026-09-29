@@ -16,7 +16,7 @@
     #overlay { position:fixed; inset:0; pointer-events:none; overflow:hidden; }
     .card { position:fixed; left:16px; background:var(--panel); border:1px solid var(--rule); border-radius:8px;
       padding:10px 14px; backdrop-filter:blur(6px); max-width:calc(100vw - 32px); box-sizing:border-box; }
-    .stats { top:calc(16px + env(safe-area-inset-top,0px)); width:15rem; display:grid; gap:8px; }
+    .stats { top:calc(16px + env(safe-area-inset-top,0px)); width:16rem; display:grid; gap:8px; }
     .row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
     .label { font:600 10.5px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
     .money { font:600 24px/1 var(--mono); color:var(--amber); font-variant-numeric:tabular-nums; }
@@ -29,10 +29,23 @@
     .help h1 { margin:0 0 6px; font:600 11px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--amber); }
     .help ul { margin:0; padding:0; list-style:none; color:var(--muted); font-size:12.5px; display:grid; gap:2px; }
     .help b { color:var(--ink); font-weight:600; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; }
     #status { position:fixed; top:calc(16px + env(safe-area-inset-top,0px)); left:50%; transform:translate(-50%,-8px); opacity:0; transition:.25s;
       background:var(--panel); border:1px solid rgba(255,179,71,.4); padding:7px 14px; border-radius:999px; pointer-events:none;
       font:500 13px/1.3 var(--mono); white-space:nowrap; max-width:calc(100vw - 32px); overflow:hidden; text-overflow:ellipsis; }
     #status.show { opacity:1; transform:translate(-50%,0); }
+    .sign { position:absolute; left:0; top:0; font:600 13px/1 var(--mono); letter-spacing:.16em; color:#f6e7c8;
+      text-shadow:0 0 8px rgba(255,190,110,.55), 0 1px 2px rgba(0,0,0,.8); white-space:nowrap; pointer-events:none; }
+    .tip { position:absolute; left:0; top:0; background:var(--panel); border:1px solid var(--rule); border-radius:6px;
+      padding:4px 8px; font:500 12px/1.2 var(--mono); white-space:nowrap; pointer-events:none; }
+    #fade { position:fixed; inset:0; background:#0c0c0e; opacity:0; pointer-events:none; transition:opacity .26s ease; }
+    #fade.on { opacity:1; }
+    .loc { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .chip { font:600 11px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--ink);
+      background:rgba(255,179,71,.16); border:1px solid rgba(255,179,71,.35); border-radius:999px; padding:5px 9px; }
+    #exit { font:600 12px/1 var(--mono); color:var(--ground); background:var(--amber); border:0; border-radius:6px; padding:6px 10px; cursor:pointer; }
+    #exit:hover { filter:brightness(1.08); }
+    #exit:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
     .pop { position:absolute; left:0; top:0; font:600 15px/1 var(--mono); text-shadow:0 1px 3px rgba(0,0,0,.7); white-space:nowrap; }
     .mood { position:absolute; left:0; top:0; width:38px; height:6px; border-radius:3px; background:rgba(15,16,19,.75);
       box-shadow:0 0 0 1px rgba(236,230,218,.18); overflow:hidden; }
@@ -53,8 +66,10 @@
   <div id="view"></div>
   <div id="overlay"></div>
   <div id="status" role="status"></div>
+  <div id="fade" aria-hidden="true"></div>
 
   <section class="card stats" aria-label="Dükkan durumu">
+    <div class="loc"><span class="chip" id="location">Sokak</span><button id="exit" type="button" hidden>Dışarı çık</button></div>
     <div class="row"><span class="label">Kasa</span><span class="money" id="money">₺150</span></div>
     <div>
       <div class="row"><span class="label" id="day">1. gün</span><span class="num" id="clock">08:00</span></div>
@@ -64,19 +79,23 @@
       <div class="row"><span class="label">İtibar</span><span class="num" id="rep-value">3.0</span></div>
       <div class="bar rep"><span id="rep-fill" style="width:60%"></span></div>
     </div>
-    <div class="row"><span class="label">Sırada</span><span class="num" id="queue">0</span></div>
-    <div class="row"><span class="label">Bugün</span><span class="num" id="today">₺0</span></div>
+    <div class="grid2">
+      <div class="row"><span class="label">Parça</span><span class="num" id="parts">2</span></div>
+      <div class="row"><span class="label">Bugün</span><span class="num" id="today">₺0</span></div>
+      <div class="row"><span class="label">Mağaza</span><span class="num" id="q-sales">0</span></div>
+      <div class="row"><span class="label">Tamir</span><span class="num" id="q-repair">0</span></div>
+    </div>
     <div id="task" hidden></div>
   </section>
 
   <section class="card help">
     <h1>Nasıl oynanır</h1>
     <ul>
-      <li><b>Kasa</b>: sıradaki müşterinin ödemesini al</li>
-      <li><b>Raf</b>: boşalan rafı doldur (ücretli)</li>
-      <li><b>Turuncu kutu</b>: tamir işi. Kasada al, masada onar, kasada teslim et</li>
-      <li><b>Sol tık</b>: yürü · <b>Sağ tık</b>: kaydır · <b>Tekerlek</b>: zoom · <b>Q/E</b>: döndür</li>
-      <li><b>Başlardaki çubuk</b>: müşterinin sabrı · <b>G</b>: grafik kalitesi</li>
+      <li><b>Sokakta</b> bir binaya tıkla: içeri gir · <b>Paspas / Esc</b>: dışarı çık</li>
+      <li><b>Mağaza</b>: kasada ödeme al, boşalan rafları doldur</li>
+      <li><b>Tamirhane</b>: cihazı resepsiyonda al, masada onar (1 parça), geri teslim et</li>
+      <li><b>Hurdalık</b>: yığınları sökerek parça çıkar ya da tezgâhtan satın al</li>
+      <li><b>Sağ tık</b>: kaydır · <b>Tekerlek</b>: zoom · <b>Q/E</b>: döndür · <b>G</b>: grafik</li>
       <li>Mobilde dokun: yürü · iki parmak: kaydır ve yakınlaştır</li>
     </ul>
   </section>

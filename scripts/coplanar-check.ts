@@ -11,6 +11,10 @@ import { createModel as bench } from "@/models/shop-kit/repair-bench"
 import { createModel as counter } from "@/models/shop-kit/checkout-counter"
 import { createModel as pendant } from "@/models/shop-kit/pendant-lamp"
 import { createModel as clock } from "@/models/shop-kit/wall-clock"
+import { createModel as building } from "@/models/shop-kit/shop-building"
+import { createModel as street } from "@/models/shop-kit/street-block"
+import { createModel as streetLamp } from "@/models/shop-kit/street-lamp"
+import { createModel as scrap } from "@/models/shop-kit/scrap-pile"
 
 const factories: Record<string, (k: ReturnType<typeof createShopKit>) => { root: Object3D; dispose(): void }> = {
   "shop-floor": (k) => floor(k, { width: 6, depth: 5 }),
@@ -19,6 +23,11 @@ const factories: Record<string, (k: ReturnType<typeof createShopKit>) => { root:
   "checkout-counter": (k) => counter(k),
   "pendant-lamp": (k) => pendant(k),
   "wall-clock": (k) => clock(k),
+  "shop-building": (k) => building(k),
+  "shop-building-metal": (k) => building(k, { facade: "metal", shutter: true, awning: "amber" }),
+  "street-block": (k) => street(k, { width: 20, depth: 16 }),
+  "street-lamp": (k) => streetLamp(k),
+  "scrap-pile": (k) => scrap(k, { variant: 3 }),
 }
 
 type Tri = { a: Vector3; b: Vector3; c: Vector3; mesh: string }

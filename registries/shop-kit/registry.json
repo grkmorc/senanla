@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "namespace": "@shop-kit",
   "title": "Shop Kit",
-  "description": "Isometric shop interior: tiled floor, modular shelving, repair bench, checkout counter, pendant lamps and a wall clock.",
+  "description": "Shop street kit: storefront buildings, street block, street lamps, scrap piles, and shop interiors (floor, shelving, repair bench, counter, pendant lamps, wall clock).",
   "license": "MIT",
   "defaultItem": "kit",
   "compatibility": {
@@ -132,6 +132,66 @@
       ]
     },
     {
+      "name": "shop-building",
+      "type": "vibe3d:model",
+      "title": "Shop Building",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/shop-building.ts",
+          "target": "models/shop-kit/shop-building.ts"
+        }
+      ]
+    },
+    {
+      "name": "street-block",
+      "type": "vibe3d:model",
+      "title": "Street Block",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/street-block.ts",
+          "target": "models/shop-kit/street-block.ts"
+        }
+      ]
+    },
+    {
+      "name": "street-lamp",
+      "type": "vibe3d:model",
+      "title": "Street Lamp",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/street-lamp.ts",
+          "target": "models/shop-kit/street-lamp.ts"
+        }
+      ]
+    },
+    {
+      "name": "scrap-pile",
+      "type": "vibe3d:model",
+      "title": "Scrap Pile",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/scrap-pile.ts",
+          "target": "models/shop-kit/scrap-pile.ts"
+        }
+      ]
+    },
+    {
       "name": "kit",
       "type": "vibe3d:kit",
       "registryDependencies": [
@@ -140,7 +200,11 @@
         "@shop-kit/repair-bench",
         "@shop-kit/checkout-counter",
         "@shop-kit/pendant-lamp",
-        "@shop-kit/wall-clock"
+        "@shop-kit/wall-clock",
+        "@shop-kit/shop-building",
+        "@shop-kit/street-block",
+        "@shop-kit/street-lamp",
+        "@shop-kit/scrap-pile"
       ]
     }
   ]

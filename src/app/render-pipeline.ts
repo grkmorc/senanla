@@ -14,6 +14,7 @@ export type Quality = "high" | "low"
 
 export class RenderPipeline {
   private readonly composer: EffectComposer
+  private readonly base: RenderPass
   private readonly ao: GTAOPass
   private readonly outline: OutlinePass
   private readonly bloom: UnrealBloomPass
@@ -23,7 +24,8 @@ export class RenderPipeline {
     const w = renderer.domElement.clientWidth || 1
     const h = renderer.domElement.clientHeight || 1
     this.composer = new EffectComposer(renderer)
-    this.composer.addPass(new RenderPass(scene, camera))
+    this.base = new RenderPass(scene, camera)
+    this.composer.addPass(this.base)
 
     this.ao = new GTAOPass(scene, camera, w, h)
     this.ao.updateGtaoMaterial({ radius: 0.45, distanceExponent: 1.4, thickness: 1.2, scale: 1.1, samples: 12 })
@@ -52,6 +54,13 @@ export class RenderPipeline {
     this.ao.enabled = q === "high"
     this.bloom.enabled = q === "high"
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, q === "high" ? 2 : 1.25))
+  }
+
+  /** Point every pass at another scene (level switch). */
+  setScene(scene: Scene) {
+    this.base.scene = scene
+    this.ao.scene = scene
+    this.outline.renderScene = scene
   }
 
   setHover(objects: Object3D[]) {

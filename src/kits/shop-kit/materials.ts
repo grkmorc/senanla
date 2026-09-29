@@ -27,6 +27,20 @@ export type ShopSlot =
   | "surface.clockFace"
   | "surface.shade"
   | "signal.warm"
+  | "surface.brick"
+  | "surface.plaster"
+  | "surface.corrugated"
+  | "surface.roof"
+  | "surface.glass"
+  | "surface.asphalt"
+  | "surface.sidewalk"
+  | "surface.paving"
+  | "surface.grass"
+  | "surface.dirt"
+  | "surface.curb"
+  | "surface.rust"
+  | "signal.paint"
+  | "surface.awningLight"
 
 interface SlotSpec { color: string; roughness: number; metalness: number; emissive?: string; emissiveIntensity?: number }
 
@@ -53,6 +67,20 @@ const DEFAULTS: Record<ShopSlot, SlotSpec> = {
   "surface.clockFace":  { color: "#efe8d8", roughness: 0.45, metalness: 0.0 },
   "surface.shade":      { color: "#1f3f3b", roughness: 0.45, metalness: 0.35 },
   "signal.warm":        { color: "#fff0d0", roughness: 0.3,  metalness: 0.0, emissive: "#ffd79a", emissiveIntensity: 2.4 },
+  "surface.brick":      { color: "#8f4d3a", roughness: 0.9,  metalness: 0.0 },
+  "surface.plaster":    { color: "#d8cdb8", roughness: 0.92, metalness: 0.0 },
+  "surface.corrugated": { color: "#7f8a8c", roughness: 0.55, metalness: 0.6 },
+  "surface.roof":       { color: "#3b3d42", roughness: 0.95, metalness: 0.0 },
+  "surface.glass":      { color: "#2c3d4a", roughness: 0.12, metalness: 0.5, emissive: "#ffc98a", emissiveIntensity: 0.0 },
+  "surface.asphalt":    { color: "#34363b", roughness: 0.95, metalness: 0.0 },
+  "surface.sidewalk":   { color: "#9d978c", roughness: 0.9,  metalness: 0.0 },
+  "surface.paving":     { color: "#a08a72", roughness: 0.9,  metalness: 0.0 },
+  "surface.grass":      { color: "#5d7a45", roughness: 1.0,  metalness: 0.0 },
+  "surface.dirt":       { color: "#6e5a44", roughness: 1.0,  metalness: 0.0 },
+  "surface.curb":       { color: "#b8b2a6", roughness: 0.85, metalness: 0.0 },
+  "surface.rust":       { color: "#8a4b2a", roughness: 0.85, metalness: 0.3 },
+  "signal.paint":       { color: "#e9e4d6", roughness: 0.7,  metalness: 0.0 },
+  "surface.awningLight":{ color: "#efe6d2", roughness: 0.85, metalness: 0.0 },
 }
 
 export interface ShopMaterialSource {

@@ -11,6 +11,8 @@ export class IsoCameraRig {
   zoom = 6.5
   minZoom = 2.5
   maxZoom = 12
+  /** Ground-plane limits for the camera focus. */
+  bounds = { minX: -8, maxX: 8, minZ: -7, maxZ: 7 }
   private yawIndex = 0
   private yaw = Math.PI / 4
   private aspect: number
@@ -37,8 +39,12 @@ export class IsoCameraRig {
     // Vertical screen motion maps onto the ground foreshortened by sin(pitch).
     this.focus.addScaledVector(right, -dx * mPerPx)
     this.focus.addScaledVector(fwd, (dy * mPerPx) / Math.sin(ISO_PITCH))
-    this.focus.x = MathUtils.clamp(this.focus.x, -8, 8)
-    this.focus.z = MathUtils.clamp(this.focus.z, -7, 7)
+    this.clampFocus()
+  }
+
+  clampFocus() {
+    this.focus.x = MathUtils.clamp(this.focus.x, this.bounds.minX, this.bounds.maxX)
+    this.focus.z = MathUtils.clamp(this.focus.z, this.bounds.minZ, this.bounds.maxZ)
   }
 
   /** Jump to the target state without easing (deterministic captures). */

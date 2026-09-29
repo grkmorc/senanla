@@ -148,6 +148,7 @@ export class Pawn {
 
   update(dt: number) {
     let travelled = 0
+    const hadPath = this.path.length > 0
     if (this.path.length) {
       const next = this.path[0]
       const to = new Vector3(next.x - this.root.position.x, 0, next.z - this.root.position.z)
@@ -166,7 +167,9 @@ export class Pawn {
       if (dist > 1e-4) this.root.rotation.y = lerpAngle(this.root.rotation.y, Math.atan2(to.x, to.z), 1 - Math.exp(-dt * 14))
     }
     this.animate(dt, travelled)
-    if (travelled > 0 && !this.path.length) this.arrive()
+    // Arrive whenever the path empties this frame, even with zero distance to cover
+    // (clicking the spot you're already standing on).
+    if (hadPath && !this.path.length) this.arrive()
   }
 
   private animate(dt: number, travelled: number) {

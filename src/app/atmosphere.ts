@@ -18,15 +18,20 @@ export class Atmosphere {
   readonly hemi: HemisphereLight
   private readonly backdrop: CanvasTexture
   private readonly tmp = new Color()
+  private readonly extent: number
+  /** Extra per-level hook, e.g. window glow or street lamps. */
+  onProgress: ((t: number) => void) | null = null
 
-  constructor(scene: Scene, private readonly interior: PointLight[]) {
+  constructor(scene: Scene, private readonly interior: PointLight[], opts: { shadowExtent?: number } = {}) {
     this.hemi = new HemisphereLight(SKY_DAY, "#3a3530", 0.9)
     scene.add(this.hemi)
 
     this.sun = new DirectionalLight(MORNING, 2)
     this.sun.castShadow = true
     this.sun.shadow.mapSize.set(2048, 2048)
-    Object.assign(this.sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 45 })
+    const e = opts.shadowExtent ?? 10
+    this.extent = e
+    Object.assign(this.sun.shadow.camera, { left: -e, right: e, top: e, bottom: -e, near: 1, far: 45 + e * 2 })
     this.sun.shadow.bias = -0.0004
     this.sun.shadow.normalBias = 0.02
     this.sun.shadow.radius = 3
@@ -48,11 +53,13 @@ export class Atmosphere {
     // Sun sweeps from the front-left in the morning to low side light in the evening.
     const a = MathUtils.lerp(-0.35, 0.9, t)
     const h = MathUtils.lerp(12, 6.5, MathUtils.smoothstep(t, 0.5, 1))
-    this.sun.position.set(Math.sin(a) * -10, h, Math.cos(a) * 9)
+    const k = Math.max(1, this.extent / 10)
+    this.sun.position.set(Math.sin(a) * -10 * k, h * k, Math.cos(a) * 9 * k)
     this.hemi.color.copy(SKY_DAY).lerp(SKY_EVE, MathUtils.smoothstep(t, 0.6, 1))
     this.hemi.intensity = MathUtils.lerp(0.95, 0.6, MathUtils.smoothstep(t, 0.55, 1))
     const lampLevel = MathUtils.lerp(2.4, 6, MathUtils.smoothstep(t, 0.45, 0.95))
     for (const l of this.interior) l.intensity = lampLevel
+    this.onProgress?.(t)
   }
 
   dispose() {

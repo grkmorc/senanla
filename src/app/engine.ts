@@ -1,0 +1,444 @@
+/**
+ * Game engine: renderer, post-processing, camera, input, the player and level switching.
+ * Every level keeps simulating; only the active one is rendered. The app owns this whole
+ * layer (Vibe3D consumer role) — models come from @shop-kit.
+ */
+import {
+  WebGLRenderer, Vector2, Vector3, Raycaster, Plane, Mesh, RingGeometry, MeshBasicMaterial,
+  MeshStandardMaterial, ACESFilmicToneMapping, PCFShadowMap, SRGBColorSpace, type Object3D,
+} from "three"
+import { createShopKit } from "@/kits/shop-kit/context"
+import { IsoCameraRig } from "./iso-camera"
+import { Pawn, disposePawnAssets } from "./pawn"
+import { RenderPipeline, defaultQuality } from "./render-pipeline"
+import { Economy, type Carry, type Tone } from "@/game/economy"
+import type { Mood } from "@/game/crowd"
+import type { Interactable, Level, LevelId } from "@/levels/level"
+import { createOutdoorLevel } from "@/levels/outdoor"
+import { createSalesLevel } from "@/levels/sales"
+import { createRepairLevel } from "@/levels/repair"
+import { createScrapLevel } from "@/levels/scrap"
+
+export interface HudState {
+  location: string
+  inside: boolean
+  money: number
+  reputation: number
+  parts: number
+  day: number
+  clock: string
+  dayProgress: number
+  salesQueue: number
+  repairQueue: number
+  carry: Carry
+  work: { text: string; progress: number } | null
+  revenueToday: number
+}
+
+export interface GameUi {
+  say(msg: string): void
+  hud(state: HudState): void
+  /** Container for floating world-space labels. */
+  overlay: HTMLElement
+  /** Fade to black, run `swap`, fade back in. */
+  fade(swap: () => void): void
+}
+
+export interface GameHandle {
+  dispose(): void
+  exit(): void
+  readonly debug: {
+    walkTo(x: number, z: number): boolean
+    interact(id: string): boolean
+    enter(id: LevelId): void
+    setView(opts: { yawStep?: number; zoom?: number; focus?: [number, number] }): void
+    fastForward(seconds: number, step?: number): void
+    readonly level: LevelId
+    readonly player: Object3D
+    readonly economy: Economy
+    readonly levels: Record<LevelId, Level>
+  }
+}
+
+export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
+  // ---------------------------------------------------------------- renderer
+  const renderer = new WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
+  renderer.outputColorSpace = SRGBColorSpace
+  renderer.toneMapping = ACESFilmicToneMapping
+  renderer.toneMappingExposure = 1.0
+  renderer.shadowMap.enabled = true
+  renderer.shadowMap.type = PCFShadowMap
+  container.appendChild(renderer.domElement)
+  const el = renderer.domElement
+
+  // ---------------------------------------------------------------- world state
+  const kit = createShopKit()
+  // App-owned window glass so shop windows can glow at night (kit-level override).
+  const windowGlass = new MeshStandardMaterial({ color: "#2c3d4a", roughness: 0.12, metalness: 0.5, emissive: "#ffc98a", emissiveIntensity: 0 })
+  kit.materials.setKitOverride("surface.glass", windowGlass)
+
+  // Floating +₺ / warning labels.
+  const floating: { el: HTMLElement; at: Vector3; t: number; level: Level }[] = []
+  const economy = new Economy({
+    say: ui.say,
+    popup(at: Vector3, text: string, tone: Tone) {
+      const node = document.createElement("div")
+      node.className = `pop pop-${tone}`
+      node.textContent = text
+      ui.overlay.appendChild(node)
+      floating.push({ el: node, at: at.clone().setY(1.8), t: 0, level: active })
+    },
+  })
+
+  const go = (to: LevelId) => switchTo(to)
+  const levels: Record<LevelId, Level> = {
+    outdoor: createOutdoorLevel(kit, economy, go, windowGlass),
+    sales: createSalesLevel(kit, economy, go),
+    repair: createRepairLevel(kit, economy, go),
+    scrap: createScrapLevel(kit, economy, go),
+  }
+  let active: Level = levels.outdoor
+
+  // ---------------------------------------------------------------- player
+  const player = new Pawn({ skin: "#e8c4a0", shirt: "#ece6da", pants: "#3a3f4a", hair: "#2a1d16", apron: "#2f6f6a" })
+  player.root.name = "app/player"
+
+  const marker = new Mesh(new RingGeometry(0.16, 0.22, 32), new MeshBasicMaterial({ color: "#5fe3ff", transparent: true, opacity: 0, depthWrite: false }))
+  marker.rotation.x = -Math.PI / 2
+  marker.userData.excludeFromExport = true
+  let markerT = 0
+  const flashMarker = (x: number, z: number, color: string) => {
+    marker.position.set(x, groundAt(x, z) + 0.03, z)
+    ;(marker.material as MeshBasicMaterial).color.set(color)
+    markerT = 1
+  }
+  const groundAt = (x: number, z: number) => active.groundAt?.(x, z) ?? 0
+
+  // ---------------------------------------------------------------- camera + render
+  const rig = new IsoCameraRig(container.clientWidth / container.clientHeight)
+  const pipeline = new RenderPipeline(renderer, active.scene, rig.camera, defaultQuality())
+
+  // Building name plates (persistent, per level) and patience bars (pooled).
+  const signEls = new Map<Level, HTMLElement[]>()
+  for (const lv of Object.values(levels)) {
+    signEls.set(lv, lv.labels.map((l) => {
+      const n = document.createElement("div")
+      n.className = "sign"
+      n.textContent = l.text
+      n.hidden = true
+      ui.overlay.appendChild(n)
+      return n
+    }))
+  }
+  const moodPool: HTMLElement[] = []
+  const moodEl = (i: number) => {
+    while (moodPool.length <= i) {
+      const n = document.createElement("div")
+      n.className = "mood"
+      n.innerHTML = "<span></span>"
+      ui.overlay.appendChild(n)
+      moodPool.push(n)
+    }
+    return moodPool[i]
+  }
+
+  const enterLevel = (lv: Level, from: LevelId | null) => {
+    active.scene.remove(player.root, marker)
+    for (const n of signEls.get(active) ?? []) n.hidden = true
+    active = lv
+    const a = lv.arrival(from)
+    player.stop()
+    player.root.position.copy(a.pos).setY(groundAt(a.pos.x, a.pos.z))
+    player.faceTowards(a.face)
+    lv.scene.add(player.root, marker)
+    rig.bounds = lv.bounds
+    rig.minZoom = lv.zoom.min
+    rig.maxZoom = lv.zoom.max
+    rig.zoom = lv.zoom.initial
+    rig.follow = true
+    rig.focus.set(a.pos.x, 0, a.pos.z)
+    rig.clampFocus()
+    rig.snap()
+    pipeline.setScene(lv.scene)
+    pipeline.setHover([])
+    lv.setDayProgress(economy.dayProgress)
+    for (const f of floating) f.el.hidden = f.level !== lv
+  }
+
+  let switching = false
+  const switchTo = (to: LevelId) => {
+    if (switching || to === active.id) return
+    switching = true
+    const from = active.id
+    ui.fade(() => {
+      enterLevel(levels[to], from)
+      switching = false
+      ui.say(levels[to].title)
+    })
+  }
+
+  // ---------------------------------------------------------------- movement
+  const walkTo = (x: number, z: number, then: (() => void) | null = null): boolean => {
+    const ok = player.goTo(active.nav, x, z, then)
+    if (!ok) { ui.say("Oraya gidilemiyor"); flashMarker(x, z, "#ff6b5f"); return false }
+    const end = player.destination ?? player.root.position
+    flashMarker(end.x, end.z, "#5fe3ff")
+    rig.follow = true
+    return true
+  }
+  const useThing = (it: Interactable): boolean => {
+    const s = it.spot()
+    return walkTo(s.x, s.z, () => {
+      player.faceTowards(it.face())
+      it.interact()
+    })
+  }
+
+  // ---------------------------------------------------------------- input
+  const raycaster = new Raycaster()
+  const ndc = new Vector2()
+  const ground = new Plane(new Vector3(0, 1, 0), 0)
+  const setRay = (x: number, y: number) => {
+    const r = el.getBoundingClientRect()
+    ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1)
+    raycaster.setFromCamera(ndc, rig.camera)
+  }
+  const pick = (): Interactable | null => {
+    let best: { it: Interactable; d: number } | null = null
+    for (const it of active.interactables) {
+      const hit = raycaster.intersectObject(it.pick, true)[0]
+      if (hit && (!best || hit.distance < best.d)) best = { it, d: hit.distance }
+    }
+    return best?.it ?? null
+  }
+
+  const pointers = new Map<number, { x: number; y: number }>()
+  let drag: { x: number; y: number; button: number; moved: boolean; multi: boolean } | null = null
+  let pinch: { dist: number; mid: { x: number; y: number } } | null = null
+  const twoFinger = () => {
+    const [a, b] = [...pointers.values()]
+    return { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }
+  }
+  const tip = document.createElement("div")
+  tip.className = "tip"
+  tip.hidden = true
+  ui.overlay.appendChild(tip)
+
+  const onDown = (e: PointerEvent) => {
+    el.setPointerCapture(e.pointerId)
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointers.size === 2) { pinch = twoFinger(); if (drag) drag.multi = true }
+    else drag = { x: e.clientX, y: e.clientY, button: e.button, moved: false, multi: false }
+  }
+  const onMove = (e: PointerEvent) => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pinch && pointers.size === 2) {
+      const now = twoFinger()
+      rig.panPixels(now.mid.x - pinch.mid.x, now.mid.y - pinch.mid.y, el.clientHeight)
+      if (now.dist > 0 && pinch.dist > 0) rig.zoomBy(pinch.dist / now.dist)
+      pinch = now
+      return
+    }
+    if (drag) {
+      const dx = e.clientX - drag.x
+      const dy = e.clientY - drag.y
+      if (Math.hypot(dx, dy) > 6) drag.moved = true
+      if (drag.moved && (drag.button === 2 || drag.button === 1 || (drag.button === 0 && e.shiftKey))) {
+        rig.panPixels(dx, dy, el.clientHeight)
+        drag.x = e.clientX
+        drag.y = e.clientY
+      }
+      return
+    }
+    if (e.pointerType !== "mouse") return
+    setRay(e.clientX, e.clientY)
+    const it = pick()
+    pipeline.setHover(it ? [it.pick] : [])
+    el.style.cursor = it ? "pointer" : "crosshair"
+    tip.hidden = !it
+    if (it) {
+      tip.textContent = it.label
+      tip.style.transform = `translate(${e.clientX + 14}px, ${e.clientY + 12}px)`
+    }
+  }
+  const onUp = (e: PointerEvent) => {
+    pointers.delete(e.pointerId)
+    if (pointers.size < 2) pinch = null
+    const d = drag
+    if (pointers.size > 0) return
+    drag = null
+    if (switching || !d || d.moved || d.multi || d.button !== 0 || e.type === "pointercancel") return
+    setRay(e.clientX, e.clientY)
+    const it = pick()
+    if (it) { useThing(it); return }
+    ground.constant = -groundAt(rig.focus.x, rig.focus.z)
+    const hit = raycaster.ray.intersectPlane(ground, new Vector3())
+    if (hit) walkTo(hit.x, hit.z)
+  }
+  const onWheel = (e: WheelEvent) => { e.preventDefault(); rig.zoomBy(Math.exp(e.deltaY * 0.0012)) }
+  const onKey = (e: KeyboardEvent) => {
+    const k = e.key.toLowerCase()
+    if (k === "q") rig.rotateStep(-1)
+    else if (k === "e") rig.rotateStep(1)
+    else if (k === "f" || k === " ") { rig.follow = true }
+    else if (k === "c") { rig.follow = !rig.follow; ui.say(rig.follow ? "Takip açık" : "Serbest kamera") }
+    else if (k === "escape" && active.id !== "outdoor") switchTo("outdoor")
+    else if (k === "g") {
+      pipeline.setQuality(pipeline.quality === "high" ? "low" : "high")
+      resize()
+      ui.say(pipeline.quality === "high" ? "Grafik: yüksek" : "Grafik: düşük")
+    }
+  }
+  el.addEventListener("contextmenu", (e) => e.preventDefault())
+  el.addEventListener("pointerdown", onDown)
+  el.addEventListener("pointermove", onMove)
+  el.addEventListener("pointerup", onUp)
+  el.addEventListener("pointercancel", onUp)
+  el.addEventListener("pointerleave", () => { tip.hidden = true })
+  el.addEventListener("wheel", onWheel, { passive: false })
+  addEventListener("keydown", onKey)
+
+  const resize = () => {
+    const w = container.clientWidth
+    const h = container.clientHeight
+    pipeline.setSize(w, h)
+    rig.setAspect(w / h)
+  }
+  const ro = new ResizeObserver(resize)
+  ro.observe(container)
+  resize()
+
+  // ---------------------------------------------------------------- simulation
+  const simulate = (dt: number) => {
+    economy.update(dt)
+    player.update(dt)
+    player.root.position.y = groundAt(player.root.position.x, player.root.position.z)
+    player.setCarry(economy.carry === "broken" ? "#e0822c" : economy.carry === "fixed" ? "#6fcf7c" : null)
+    const ctx = { playerMoving: player.moving, playerPos: player.root.position }
+    const idle = { playerMoving: true, playerPos: new Vector3(1e4, 0, 1e4) }
+    for (const lv of Object.values(levels)) lv.update(dt, lv === active ? ctx : idle)
+  }
+
+  // ---------------------------------------------------------------- loop
+  const proj = new Vector3()
+  const toScreen = (p: Vector3) => {
+    proj.copy(p).project(rig.camera)
+    return [(proj.x * 0.5 + 0.5) * el.clientWidth, (-proj.y * 0.5 + 0.5) * el.clientHeight, proj.z] as const
+  }
+  let last = performance.now()
+  let raf = 0
+  let hudT = 0
+  let lightT = 0
+  const tick = (now: number) => {
+    // rAF timestamps can precede the performance.now() taken at start: never step backwards.
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000))
+    last = Math.max(last, now)
+    if (!switching) simulate(dt)
+
+    if (markerT > 0) {
+      markerT = Math.max(0, markerT - dt * 1.2)
+      ;(marker.material as MeshBasicMaterial).opacity = markerT
+      marker.scale.setScalar(1 + (1 - markerT) * 0.6)
+    }
+    if (rig.follow) rig.focus.lerp(new Vector3(player.root.position.x, 0, player.root.position.z), 1 - Math.exp(-dt * 5))
+    rig.clampFocus()
+    rig.update(dt)
+    lightT -= dt
+    if (lightT <= 0) { active.setDayProgress(economy.dayProgress); lightT = 0.25 }
+    pipeline.render(dt)
+
+    // Sign plates over buildings.
+    const signs = signEls.get(active) ?? []
+    active.labels.forEach((l, i) => {
+      const [x, y, z] = toScreen(l.at)
+      const n = signs[i]
+      n.hidden = z > 1
+      n.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`
+    })
+
+    // Patience bars.
+    const moods: Mood[] = active.moods()
+    moods.forEach((m, i) => {
+      const n = moodEl(i)
+      n.hidden = false
+      const [x, y] = toScreen(m.pawn.headTop(proj))
+      n.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`
+      ;(n.firstElementChild as HTMLElement).style.width = `${m.ratio * 100}%`
+      n.dataset.level = m.ratio > 0.5 ? "ok" : m.ratio > 0.25 ? "warn" : "bad"
+      n.dataset.kind = m.kind
+    })
+    for (let i = moods.length; i < moodPool.length; i++) moodPool[i].hidden = true
+
+    // Floating labels rise and fade.
+    for (let i = floating.length - 1; i >= 0; i--) {
+      const f = floating[i]
+      f.t += dt / 1.4
+      if (f.t >= 1) { f.el.remove(); floating.splice(i, 1); continue }
+      f.el.hidden = f.level !== active
+      const [x, y] = toScreen(proj.copy(f.at).setY(f.at.y + f.t * 0.8))
+      f.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`
+      f.el.style.opacity = String(1 - f.t * f.t)
+    }
+
+    hudT -= dt
+    if (hudT <= 0) {
+      hudT = 0.1
+      ui.hud({
+        location: active.title,
+        inside: active.id !== "outdoor",
+        money: economy.money,
+        reputation: economy.reputation,
+        parts: economy.parts,
+        day: economy.day,
+        clock: economy.clock(),
+        dayProgress: economy.dayProgress,
+        salesQueue: (levels.sales as ReturnType<typeof createSalesLevel>).floor.queueLength,
+        repairQueue: (levels.repair as ReturnType<typeof createRepairLevel>).desk.queueLength,
+        carry: economy.carry,
+        work: active.work(),
+        revenueToday: economy.revenueToday,
+      })
+    }
+    raf = requestAnimationFrame(tick)
+  }
+
+  enterLevel(levels.outdoor, null)
+  raf = requestAnimationFrame(tick)
+  ui.say("Sokaktasın. Bir dükkana tıklayıp içeri gir")
+
+  return {
+    exit: () => { if (active.id !== "outdoor") switchTo("outdoor") },
+    dispose() {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+      removeEventListener("keydown", onKey)
+      Object.values(levels).forEach((lv) => lv.dispose())
+      player.dispose()
+      disposePawnAssets()
+      kit.dispose()
+      windowGlass.dispose()
+      marker.geometry.dispose()
+      ;(marker.material as MeshBasicMaterial).dispose()
+      pipeline.dispose()
+      renderer.dispose()
+      ui.overlay.replaceChildren()
+      el.remove()
+    },
+    debug: {
+      walkTo: (x, z) => walkTo(x, z),
+      interact: (id) => { const it = active.interactables.find((i) => i.id === id); return it ? useThing(it) : false },
+      enter: (id) => { if (id !== active.id) enterLevel(levels[id], active.id) },
+      setView({ yawStep, zoom, focus }) {
+        if (yawStep) rig.rotateStep(yawStep)
+        if (zoom) rig.zoom = zoom
+        if (focus) { rig.follow = false; rig.focus.set(focus[0], 0, focus[1]) }
+        rig.snap()
+      },
+      fastForward(seconds, step = 1 / 30) { for (let t = 0; t < seconds; t += step) simulate(step) },
+      get level() { return active.id },
+      get player() { return player.root },
+      economy,
+      levels,
+    },
+  }
+}
