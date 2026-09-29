@@ -14,8 +14,6 @@ interface Client extends CrowdMember {
 const MAX_CLIENTS = 4
 const QUEUE_PATIENCE = 45
 const WAIT_PATIENCE = 130
-export const REPAIR_TIME = 4
-const REPAIR_FEE = 55
 
 export class RepairDesk {
   private readonly crowd: Crowd<Client>
@@ -45,7 +43,7 @@ export class RepairDesk {
       const c = this.job
       this.job = null
       this.eco.carry = null
-      this.eco.earn(REPAIR_FEE, playerPos, "repair")
+      this.eco.earn(this.eco.stats.repairFee, playerPos, "repair")
       this.eco.bumpRep(0.3)
       this.eco.notify.say("Cihaz teslim edildi · müşteri memnun")
       c.pawn.setCarry("#6fcf7c")
@@ -63,7 +61,7 @@ export class RepairDesk {
     this.progress = 0
     this.eco.carry = "broken"
     head.pawn.setCarry(null)
-    head.patience = head.maxPatience = WAIT_PATIENCE
+    head.patience = head.maxPatience = WAIT_PATIENCE * this.eco.stats.repairPatienceMult
     head.seat = this.freeSeat()
     this.crowd.walkTo(head, this.seats[head.seat], "toSeat", () => {
       head.state = "waiting"
@@ -91,14 +89,14 @@ export class RepairDesk {
     if (!this.eco.closing && this.spawnIn <= 0 && this.crowd.members.length < MAX_CLIENTS) {
       const c = this.crowd.spawn((pawn) => ({ pawn, state: "new", patience: 0, maxPatience: 1, seat: -1 }))
       c.pawn.setCarry("#e0822c")
-      this.crowd.joinQueue(c, QUEUE_PATIENCE)
+      this.crowd.joinQueue(c, QUEUE_PATIENCE * this.eco.stats.repairPatienceMult)
       this.spawnIn = 22 - this.eco.reputation * 2 + rng() * 8
     }
 
     if (this.benchActive) {
       if (playerMoving || this.eco.carry !== "broken") this.benchActive = false
       else {
-        this.progress = Math.min(1, this.progress + dt / REPAIR_TIME)
+        this.progress = Math.min(1, this.progress + dt / this.eco.stats.repairTime)
         if (this.progress >= 1) {
           this.eco.carry = "fixed"
           this.benchActive = false

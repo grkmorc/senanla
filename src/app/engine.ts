@@ -12,6 +12,8 @@ import { IsoCameraRig } from "./iso-camera"
 import { Pawn, disposePawnAssets } from "./pawn"
 import { RenderPipeline, defaultQuality } from "./render-pipeline"
 import { Economy, type Carry, type Tone } from "@/game/economy"
+import { loadGame, saveGame, clearSave } from "@/game/save"
+import type { Upgrades } from "@/game/upgrades"
 import type { Mood } from "@/game/crowd"
 import type { Interactable, Level, LevelId } from "@/levels/level"
 import { createOutdoorLevel } from "@/levels/outdoor"
@@ -37,6 +39,8 @@ export interface HudState {
   carry: Carry
   work: { text: string; progress: number } | null
   revenueToday: number
+  /** Upgrades you could buy right now. */
+  affordableUpgrades: number
 }
 
 export interface GameUi {
@@ -53,6 +57,12 @@ export interface GameHandle {
   exit(): void
   /** Open a place directly (HUD shortcuts). */
   go(id: LevelId): void
+  readonly upgrades: Upgrades
+  readonly money: number
+  /** Buy the next level; returns the new level or null. */
+  buy(id: string): number | null
+  /** Wipe the save and start over. */
+  reset(): void
   readonly debug: {
     walkTo(x: number, z: number): boolean
     interact(id: string): boolean
@@ -98,6 +108,8 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
     },
   })
 
+  const resumed = loadGame(economy)
+  economy.onNewDay(() => saveGame(economy))
   const go = (to: LevelId) => switchTo(to)
   const levels: Record<LevelId, Level> = {
     outdoor: createOutdoorLevel(kit, economy, go, windowGlass),
@@ -350,6 +362,7 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
   let last = performance.now()
   let raf = 0
   let hudT = 0
+  let saveT = 5
   let lightT = 0
   const tick = (now: number) => {
     // rAF timestamps can precede the performance.now() taken at start: never step backwards.
@@ -402,6 +415,8 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
       f.el.style.opacity = String(1 - f.t * f.t)
     }
 
+    saveT -= dt
+    if (saveT <= 0) { saveGame(economy); saveT = 5 }
     hudT -= dt
     if (hudT <= 0) {
       hudT = 0.1
@@ -423,6 +438,7 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
         carry: economy.carry,
         work: active.work(),
         revenueToday: economy.revenueToday,
+        affordableUpgrades: economy.upgrades.affordable(economy.money),
       })
     }
     raf = requestAnimationFrame(tick)
@@ -430,15 +446,23 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
 
   enterLevel(levels.outdoor, null)
   raf = requestAnimationFrame(tick)
-  ui.say("Bir dükkana tıkla, içi açılsın · soldaki kartlar sıraları gösterir")
+  ui.say(resumed ? `Kaldığın yerden devam · ${economy.day}. gün` : "Bir dükkana tıkla, içi açılsın · soldaki kartlar sıraları gösterir")
+  const onHide = () => saveGame(economy)
+  addEventListener("pagehide", onHide)
 
   return {
     exit: () => { if (active.id !== "outdoor") switchTo("outdoor") },
     go: (id) => switchTo(id),
+    upgrades: economy.upgrades,
+    get money() { return economy.money },
+    buy: (id) => { const l = economy.buyUpgrade(id); if (l !== null) saveGame(economy); return l },
+    reset: () => { removeEventListener("pagehide", onHide); clearSave(); location.reload() },
     dispose() {
       cancelAnimationFrame(raf)
       ro.disconnect()
       removeEventListener("keydown", onKey)
+      removeEventListener("pagehide", onHide)
+      saveGame(economy)
       Object.values(levels).forEach((lv) => lv.dispose())
       player.dispose()
       disposePawnAssets()

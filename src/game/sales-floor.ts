@@ -22,7 +22,7 @@ interface Buyer extends CrowdMember {
   bill: number
 }
 
-const MAX_CUSTOMERS = 5
+const BASE_CUSTOMERS = 5
 const QUEUE_PATIENCE = 40
 const RESTOCK_COST_FULL = 36
 const PICK_AMOUNT = 0.12
@@ -36,6 +36,8 @@ export class SalesFloor {
   }
 
   get queueLength() { return this.crowd.queue.length }
+  /** Put a newly built shelf into service. */
+  addShelf(slot: ShelfSlot) { if (!this.shelves.includes(slot)) this.shelves.push(slot) }
   /** Shelves below a third full. */
   get lowShelves() { return this.shelves.filter((s) => s.model.getConfig().stock < 0.34).length }
   get customers() { return this.crowd.members.length }
@@ -56,7 +58,7 @@ export class SalesFloor {
   restock(shelf: ShelfSlot, playerPos: Vector3) {
     const stock = shelf.model.getConfig().stock
     if (stock >= 0.95) { this.eco.notify.say(`${shelf.label} zaten dolu`); return }
-    const cost = Math.ceil((1 - stock) * RESTOCK_COST_FULL)
+    const cost = Math.ceil((1 - stock) * RESTOCK_COST_FULL * this.eco.stats.restockCostMult)
     if (!this.eco.spend(cost, playerPos, "raf doldurmak", "sales")) return
     shelf.model.configure({ stock: 1 })
     this.eco.notify.say(`${shelf.label} dolduruldu`)
@@ -65,9 +67,10 @@ export class SalesFloor {
   update(dt: number) {
     const rng = this.crowd.d.rng
     this.spawnIn -= dt
-    if (!this.eco.closing && this.spawnIn <= 0 && this.crowd.members.length < MAX_CUSTOMERS) {
+    const maxCustomers = BASE_CUSTOMERS + Math.ceil(this.shelves.length / 2) - 2
+    if (!this.eco.closing && this.spawnIn <= 0 && this.crowd.members.length < maxCustomers) {
       this.spawn()
-      this.spawnIn = 11 - this.eco.reputation * 1.3 + rng() * 4
+      this.spawnIn = (11 - this.eco.reputation * 1.3 + rng() * 4) * this.eco.stats.salesSpawnMult
     }
     for (const c of [...this.crowd.members]) this.think(c, dt)
     this.crowd.update(dt)
@@ -91,12 +94,12 @@ export class SalesFloor {
         const n = 1 + Math.floor(rng() * 2)
         shelf.model.configure({ stock: Math.max(0, stock - PICK_AMOUNT * n) })
         c.basket += n
-        c.bill += n * shelf.price
+        c.bill += Math.round(n * shelf.price * this.eco.stats.salesPriceMult)
         c.pawn.setCarry("#c8553d")
       }
       const next = rng() < 0.35 && c.basket < 3 ? this.pickShelf(shelf) : null
       if (next) this.sendToShelf(c, next)
-      else if (c.basket > 0) this.crowd.joinQueue(c, QUEUE_PATIENCE)
+      else if (c.basket > 0) this.crowd.joinQueue(c, QUEUE_PATIENCE * this.eco.stats.salesPatienceMult)
       else this.emptyHanded(c)
     } else if (c.state === "queued" || c.state === "toQueue") {
       c.patience -= dt

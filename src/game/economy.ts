@@ -3,6 +3,7 @@
  * what the player is carrying, and the shop-day clock.
  */
 import type { Vector3 } from "three"
+import { Upgrades } from "./upgrades"
 
 export type Carry = null | "broken" | "fixed"
 export type Tone = "gain" | "loss" | "info"
@@ -27,8 +28,26 @@ export class Economy {
   revenueToday = 0
   private time = 0
   private readonly dayListeners: (() => void)[] = []
+  readonly upgrades = new Upgrades()
 
   constructor(readonly notify: Notifier) {}
+
+  get stats() { return this.upgrades.stats }
+
+  /** Buy the next level of an upgrade. Returns the new level, or null when it can't be bought. */
+  buyUpgrade(id: string): number | null {
+    const d = this.upgrades.def(id)
+    const cost = this.upgrades.nextCost(id)
+    if (!d || cost === null) return null
+    if (this.money < cost) {
+      this.notify.say(`Para yetmiyor · ${d.name} için ₺${cost} lazım`)
+      return null
+    }
+    this.money -= cost
+    const level = this.upgrades.raise(id)
+    this.notify.say(`${d.name} · ${level}. seviye alındı`)
+    return level
+  }
 
   get dayProgress() { return this.time / DAY_SECONDS }
   /** True during the last few in-game hours, when new customers stop arriving. */
@@ -67,6 +86,7 @@ export class Economy {
   }
 
   bumpRep(delta: number) {
+    if (delta > 0) delta *= this.stats.repGainMult
     this.reputation = Math.min(5, Math.max(0, this.reputation + delta))
   }
 

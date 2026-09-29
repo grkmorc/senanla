@@ -60,7 +60,7 @@ export function createScrapLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) =
       interact: () => yard.strip(p),
     })),
     {
-      id: "dealer", label: `Parça tezgâhı · ₺${yard.partPrice}`, pick: dealer.root,
+      id: "dealer", get label() { return `Parça tezgâhı · ₺${yard.partPrice}` }, pick: dealer.root,
       spot: () => socketWorld(dealer, "customer"), face: () => dealer.root.position,
       interact: () => { dealer.actions.ring(); yard.buyPart(playerPos) },
     },

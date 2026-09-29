@@ -19,6 +19,8 @@ Oyun canlı bir şehir sokağında başlar: arabalar trafik ışıklı kavşakta
 
 Para, itibar, parça stoğu ve saat üç dükkan arasında ortaktır. Sen başka bir yerdeyken de dükkanlara müşteri gelmeye devam eder; bekleyen müşteri sabrını kaybedip giderse itibar düşer. HUD iki dükkanın sırasını her yerden gösterir.
 
+**Geliştirmeler:** Üst çubuktaki **Geliştir** butonu (ya da **U**) dükkan başına geliştirme panelini açar: ek raflar, ışıklı vitrin, seçkin ürünler, profesyonel alet seti, garanti belgesi, hidrolik makas, ayıklama bandı ve daha fazlası. Her geliştirmenin seviyeleri vardır; ilerleme bu tarayıcıda otomatik kaydedilir.
+
 Gün 08:00'de açılır, 20:00'de kapanır (3 dakika). Güneş gün boyunca döner; akşam sokak lambaları ve vitrinler yanar.
 
 ## Yapı
@@ -48,6 +50,8 @@ src/game/crowd.ts                    # müşteri doğurma, sıra, ayrılma
 src/game/sales-floor.ts              # mağaza oyunu
 src/game/repair-desk.ts              # tamirhane oyunu
 src/game/scrap-yard.ts               # hurdalık oyunu
+src/game/upgrades.ts                 # geliştirme kataloğu (seviye, fiyat, etki) ve Stats
+src/game/save.ts                     # localStorage kayıt / yükleme / sıfırlama
 src/levels/                          # outdoor, sales, repair, scrap level'ları + ortak iç mekân iskeleti
 src/sim/traffic.ts                   # şeritler, ışık döngüsü, takip mesafesi, yayaya yol verme
 src/sim/pedestrians.ts               # kaldırımda gezen, yaya geçidinden karşıya geçen yayalar
@@ -87,3 +91,19 @@ shelf.dispose()                           // idempotent; ödünç materyaller di
 ## Yayın
 
 `main` dalına her push'ta `.github/workflows/pages.yml` tip kontrolü, coplanar kontrolü ve derlemeyi çalıştırır, ardından `dist/` klasörünü GitHub Pages'e yayınlar.
+
+## Yeni geliştirme eklemek
+
+`src/game/upgrades.ts` içindeki `CATALOGUE` dizisine bir kayıt ekle:
+
+```ts
+{
+  id: "repair.bench3", shop: "repair", icon: "i-wrench", name: "Üçüncü tezgâh",
+  desc: "Kısa açıklama.",
+  costs: [300, 600],                         // seviye başına fiyat
+  value: (l) => `${2 + l} tezgâh`,           // panelde "şimdi → sonra"
+  apply: (s, l) => { s.repairTime *= 0.9 ** l }, // Stats üzerinde etki
+}
+```
+
+Yeni bir sayısal etki gerekiyorsa `Stats` arayüzüne ve `BASE_STATS`'a alan ekle, oyun sisteminde `eco.stats.<alan>` olarak oku. Görsel bir değişiklik (yeni model, raf vb.) için ilgili level'da `eco.upgrades.onChange(...)` dinle; `levels/sales.ts` içindeki ek raflar örnek.

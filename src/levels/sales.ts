@@ -1,5 +1,5 @@
 /** Mağaza: the sales shop — shelves, till and walk-in buyers. */
-import { Vector3 } from "three"
+import { Box3, Vector3 } from "three"
 import { WALL_T } from "@/models/shop-kit/shop-floor"
 import { createModularShelf } from "@/models/shop-kit/modular-shelf"
 import { createCheckoutCounter } from "@/models/shop-kit/checkout-counter"
@@ -25,6 +25,12 @@ export function createSalesLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) =
   ]
   const counter = place(createCheckoutCounter(kit, { registerSide: "right" }), 2.6, 2.1)
 
+  // Shelves bought as upgrades: built up front, but only placed in the shop once unlocked.
+  const extraSpots: { x: number; z: number; rot: number; cfg: Parameters<typeof createModularShelf>[1] }[] = [
+    { x: -hw + WALL_T + 0.27, z: -2.6, rot: Math.PI / 2, cfg: { bays: 2, levels: 5, stock: 1 } },
+    { x: 0.9, z: -1.4, rot: 0, cfg: { bays: 2, height: 1.4, levels: 3, backPanel: false, depth: 0.6, stock: 1 } },
+  ]
+
   const area = { minX: -hw, maxX: hw, minZ: -hd, maxZ: hd }
   const nav = navFor(area, [...shelves, counter].map((m) => m.root), 0.24, 0.2, [
     [-hw, -hd, hw, -hd + WALL_T], [-hw, -hd, -hw + WALL_T, hd],
@@ -33,6 +39,7 @@ export function createSalesLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) =
   const slots: ShelfSlot[] = shelves.map((m, i) => ({
     id: `shelf-${i + 1}`, label: `Raf ${i + 1}`, model: m, spot: socketWorld(m, "front"), price: [8, 12, 6, 10, 14][i],
   }))
+  const extraPrices = [11, 9]
   const sales = new SalesFloor(eco, {
     scene: room.scene, nav, entrance: room.entrance,
     queueHead: socketWorld(counter, "customer"), queueStep: new Vector3(-0.72, 0, 0.3), queueFacing: new Vector3(0, 0, -1),
@@ -40,12 +47,13 @@ export function createSalesLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) =
   }, slots)
 
   let playerPos = new Vector3()
+  const shelfInteractable = (s: ShelfSlot): Interactable => ({
+    id: s.id, label: `${s.label} · doldur`, pick: s.model.root,
+    spot: () => s.spot, face: () => s.model.root.position,
+    interact: () => sales.restock(s, playerPos),
+  })
   const interactables: Interactable[] = [
-    ...slots.map((s) => ({
-      id: s.id, label: `${s.label} · doldur`, pick: s.model.root,
-      spot: () => s.spot, face: () => s.model.root.position,
-      interact: () => sales.restock(s, playerPos),
-    })),
+    ...slots.map(shelfInteractable),
     {
       id: "counter", label: "Kasa · ödeme al", pick: counter.root,
       spot: () => socketWorld(counter, "cashier"), face: () => counter.root.position,
@@ -53,6 +61,24 @@ export function createSalesLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) =
     },
     room.exit,
   ]
+
+  // Build any shelves the upgrades now call for (never removes: upgrades only go up).
+  let built = 0
+  const syncShelves = () => {
+    while (built < Math.min(eco.stats.salesExtraShelves, extraSpots.length)) {
+      const spot = extraSpots[built]
+      const m = place(createModularShelf(kit, spot.cfg), spot.x, spot.z, spot.rot)
+      const box = new Box3().setFromObject(m.root)
+      nav.blockRect(box.min.x, box.min.z, box.max.x, box.max.z, 0.24)
+      const n = shelves.length + built + 1
+      const slot: ShelfSlot = { id: `shelf-${n}`, label: `Raf ${n}`, model: m, spot: socketWorld(m, "front"), price: extraPrices[built] }
+      sales.addShelf(slot)
+      interactables.splice(interactables.length - 1, 0, shelfInteractable(slot))
+      built++
+    }
+  }
+  eco.upgrades.onChange(syncShelves)
+  syncShelves()
 
   return {
     id: "sales",

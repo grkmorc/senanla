@@ -4,7 +4,7 @@
  */
 import type { Vector3 } from "three"
 import type { ScrapPile } from "@/models/shop-kit/scrap-pile"
-import type { Economy } from "./economy"
+import { mulberry32, type Economy } from "./economy"
 
 export interface PileSlot {
   id: string
@@ -15,14 +15,13 @@ export interface PileSlot {
 }
 
 export const PILE_MAX = 4
-export const STRIP_TIME = 2.5
-const PART_PRICE = 14
 const REFILL_EVERY = 25
 
 export class ScrapYard {
   private active: PileSlot | null = null
   private progress = 0
   private refillIn = REFILL_EVERY
+  private readonly rng = mulberry32(3003)
 
   constructor(private readonly eco: Economy, readonly piles: PileSlot[]) {
     for (const p of piles) this.syncPile(p)
@@ -30,7 +29,7 @@ export class ScrapYard {
   }
 
   get workProgress(): number | null { return this.active ? this.progress : null }
-  get partPrice() { return PART_PRICE }
+  get partPrice() { return this.eco.stats.partPrice }
   /** Parts still recoverable from all piles. */
   get salvageLeft() { return this.piles.reduce((n, p) => n + p.left, 0) }
 
@@ -42,7 +41,7 @@ export class ScrapYard {
   }
 
   buyPart(at: Vector3) {
-    if (!this.eco.spend(PART_PRICE, at, "yedek parça", "scrap")) return
+    if (!this.eco.spend(this.eco.stats.partPrice, at, "yedek parça", "scrap")) return
     this.eco.parts++
     this.eco.notify.say(`Parça alındı · elinde ${this.eco.parts}`)
   }
@@ -51,15 +50,16 @@ export class ScrapYard {
     if (this.active) {
       if (playerMoving) { this.active = null; this.progress = 0 }
       else {
-        this.progress += dt / STRIP_TIME
+        this.progress += dt / this.eco.stats.stripTime
         if (this.progress >= 1) {
           const p = this.active
           this.active = null
           this.progress = 0
           p.left--
           this.syncPile(p)
-          this.eco.parts++
-          this.eco.notify.popup(p.spot, "+1 parça", "info", "scrap")
+          const bonus = this.rng() < this.eco.stats.bonusPartChance ? 1 : 0
+          this.eco.parts += 1 + bonus
+          this.eco.notify.popup(p.spot, bonus ? "+2 parça" : "+1 parça", "info", "scrap")
           this.eco.notify.say(`Parça çıkarıldı · elinde ${this.eco.parts}`)
         }
       }
