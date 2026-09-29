@@ -63,8 +63,25 @@
     .stars .base { color:rgba(241,235,223,.16); }
     .stars .fill { color:var(--amber); overflow:hidden; width:60%; transition:width .3s; }
 
+    /* ---------- business + goal cards ---------- */
+    .side { position:fixed; left:16px; top:calc(84px + env(safe-area-inset-top,0px)); width:19.5rem; display:grid; gap:8px; }
+    .goal { display:grid; gap:8px; padding:12px 14px; text-align:left; cursor:pointer; border-left:3px solid var(--c); }
+    .goal:hover { background:rgba(34,32,30,.9); }
+    .goal .top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .goal .k { font:600 10px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--faint); }
+    .goal .name { font:700 15px/1.1 var(--display); display:flex; align-items:center; gap:8px; margin-top:4px; }
+    .goal .name svg { color:var(--c); }
+    .goal .amt { font:600 12.5px/1 var(--mono); color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .goal .top > span:first-child { min-width:0; }
+    .goal .name span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .goal .track { margin:0; height:6px; border-radius:3px; }
+    .goal .track > span { background:var(--c); }
+    .goal .cta { justify-self:start; font:700 13px/1 var(--display); padding:8px 12px; border-radius:8px; color:var(--ground); background:var(--c); }
+    .goal[data-ready="false"] .cta { display:none; }
+    .goal[data-ready="true"] { animation:ready 1.8s ease-in-out infinite; }
+    @keyframes ready { 50% { box-shadow:0 10px 30px rgba(0,0,0,.35), 0 0 0 3px color-mix(in oklab, var(--c) 35%, transparent); } }
+
     /* ---------- shop cards ---------- */
-    .shops { position:fixed; left:16px; top:calc(84px + env(safe-area-inset-top,0px)); width:19.5rem; display:grid; gap:8px; }
     .shop { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; text-align:left; cursor:pointer;
       padding:10px 12px; border-left:3px solid var(--c); transition:transform .15s, background .15s; }
     .shop:hover { transform:translateX(3px); background:rgba(34,32,30,.9); }
@@ -99,6 +116,9 @@
     .sign { position:absolute; left:0; top:0; display:flex; align-items:center; gap:7px; padding:5px 11px 5px 9px; border-radius:999px;
       background:rgba(20,19,18,.82); border:1px solid rgba(255,220,170,.22); font:700 12px/1 var(--display); letter-spacing:.14em;
       color:#fbeed6; white-space:nowrap; pointer-events:none; box-shadow:0 4px 14px rgba(0,0,0,.35); }
+    .sign[data-kind="rent"] { background:rgba(20,19,18,.72); border-style:dashed; border-color:rgba(255,200,120,.45); color:#ffd9a0; font-size:11px; }
+    .sign[data-kind="soon"] { background:rgba(20,19,18,.6); border-color:rgba(241,235,223,.12); color:var(--muted); font-size:10.5px; }
+    .sign[data-kind="soon"]::before { background:var(--faint); box-shadow:none; }
     .sign::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--dot, var(--amber)); box-shadow:0 0 8px var(--dot, var(--amber)); }
     .pop { position:absolute; left:0; top:0; font:800 17px/1 var(--display); text-shadow:0 2px 6px rgba(0,0,0,.75); white-space:nowrap; }
     .pop-gain { color:var(--gain); } .pop-loss { color:var(--loss); } .pop-info { color:#bfe6ff; }
@@ -151,7 +171,7 @@
     .drawer .sub { margin:4px 0 0; color:var(--muted); font-size:13px; }
     .drawer .sub b { color:var(--amber); font:700 13px/1 var(--mono); }
     .drawer .close, .help .close { width:34px; height:34px; border-radius:50%; border:0; background:var(--raise); cursor:pointer; display:grid; place-items:center; flex:none; }
-    .tabs { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:4px; margin:0 20px; padding:4px; border-radius:10px; background:rgba(0,0,0,.25); }
+    .tabs { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:4px; margin:0 20px; padding:4px; border-radius:10px; background:rgba(0,0,0,.25); }
     .tabs button { display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 4px; border:0; border-radius:7px;
       background:transparent; color:var(--muted); cursor:pointer; font:600 12px/1 var(--body); }
     .tabs button:hover { color:var(--ink); background:var(--raise); }
@@ -186,6 +206,49 @@
     .confirm { display:inline-flex; align-items:center; gap:10px; color:var(--ink); flex-wrap:wrap; }
     .danger { border:0; border-radius:6px; padding:6px 10px; cursor:pointer; background:var(--loss); color:#1a0c09; font:700 12.5px/1 var(--body); }
 
+    /* ---------- career roadmap ---------- */
+    dialog.career { width:min(38rem, calc(100vw - 32px)); max-height:calc(100dvh - 48px); padding:0; border:1px solid var(--rule); border-radius:16px;
+      color:var(--ink); background:var(--panel-solid); box-shadow:0 30px 80px rgba(0,0,0,.6); }
+    dialog.career[open] { display:flex; flex-direction:column; }
+    dialog.career::backdrop, dialog.celebrate::backdrop { background:rgba(8,8,9,.55); backdrop-filter:blur(3px); }
+    .career header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:20px 22px 6px; }
+    .career h2, .celebrate h2 { margin:0; font:800 26px/1.1 var(--display); text-wrap:balance; }
+    .career .sub { margin:6px 0 0; color:var(--muted); font-size:13.5px; max-width:52ch; }
+    .ladder { list-style:none; margin:0; padding:10px 22px 8px; display:grid; gap:0; overflow-y:auto; }
+    .step { position:relative; display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:4px 14px; align-items:center; padding:12px 0; }
+    .step + .step::before { content:""; position:absolute; left:21px; top:-12px; height:24px; width:2px; background:var(--rule); }
+    .step[data-state="done"] + .step::before, .step[data-state="current"] + .step::before { background:color-mix(in oklab, var(--gain) 60%, transparent); }
+    .step .ico { grid-row:span 2; width:44px; height:44px; border-radius:12px; display:grid; place-items:center; color:var(--c);
+      background:color-mix(in oklab, var(--c) 16%, transparent); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--c) 30%, transparent); }
+    .step .ico svg { width:22px; height:22px; }
+    .step h3 { margin:0; font:700 16px/1.2 var(--display); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .step p { margin:0; color:var(--muted); font-size:13px; grid-column:2; }
+    .step .act { grid-row:span 2; grid-column:3; }
+    .tag { font:600 10.5px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; padding:4px 7px; border-radius:6px; background:var(--raise); color:var(--muted); }
+    .tag.now { color:var(--ground); background:var(--gain); }
+    .tag.done { color:var(--gain); background:color-mix(in oklab, var(--gain) 14%, transparent); }
+    .step[data-state="done"] { opacity:.62; }
+    .step[data-state="soon"] .ico, .step[data-state="locked"] .ico { filter:grayscale(.7); opacity:.75; }
+    .step[data-focus="true"] { background:linear-gradient(90deg, color-mix(in oklab, var(--c) 10%, transparent), transparent); border-radius:12px; }
+    .move { display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
+    .move .buy { white-space:nowrap; }
+    .move small { color:var(--muted); font:500 11.5px/1 var(--mono); font-variant-numeric:tabular-nums; }
+    .branch-title { margin:10px 0 0; padding:12px 0 2px; border-top:1px solid var(--rule); font:600 10.5px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--faint); }
+    .career footer { padding:12px 22px 18px; border-top:1px solid var(--rule); color:var(--faint); font-size:12.5px; }
+
+    dialog.celebrate { width:min(26rem, calc(100vw - 32px)); padding:28px 26px 22px; border:1px solid color-mix(in oklab, var(--c) 50%, transparent);
+      border-radius:18px; color:var(--ink); text-align:center; background:radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--c) 22%, var(--panel-solid)), var(--panel-solid));
+      box-shadow:0 30px 90px rgba(0,0,0,.6), 0 0 60px color-mix(in oklab, var(--c) 25%, transparent); }
+    dialog.celebrate[open] { animation:pop .35s cubic-bezier(.2,1.4,.4,1); }
+    @keyframes pop { from { transform:scale(.85); opacity:0; } }
+    .celebrate .badge-ico { width:72px; height:72px; margin:0 auto 14px; border-radius:20px; display:grid; place-items:center; color:var(--c);
+      background:color-mix(in oklab, var(--c) 18%, transparent); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--c) 40%, transparent); }
+    .celebrate .badge-ico svg { width:36px; height:36px; }
+    .celebrate .k { font:600 11px/1 var(--mono); letter-spacing:.16em; text-transform:uppercase; color:var(--c); }
+    .celebrate h2 { margin:8px 0 8px; }
+    .celebrate p { margin:0 auto 18px; color:var(--muted); max-width:34ch; }
+    .celebrate .buy { margin:0 auto; padding:11px 22px; font-size:15px; }
+
     /* ---------- small screens ---------- */
     @media (max-width:900px) {
       .places button span, .upgbtn span { display:none; }
@@ -198,10 +261,16 @@
       .day { order:3; flex:1 1 100%; margin:0; }
       .wallet { margin-left:auto; gap:10px; padding:8px 12px; }
       .wallet .today { display:none; }
-      .shops { top:auto; bottom:calc(76px + env(safe-area-inset-bottom,0px)); right:16px; width:auto; grid-template-columns:repeat(3, minmax(0,1fr)); gap:6px; }
-      .shop { grid-template-columns:1fr auto; padding:8px; gap:6px; border-left-width:0; border-top:3px solid var(--c); }
-      .shop .ico, .shop .line { display:none; }
-      .shop .name { font-size:13px; }
+      .side { top:auto; bottom:calc(76px + env(safe-area-inset-bottom,0px)); right:16px; width:auto; grid-template-columns:1fr 1fr; gap:6px; }
+      .shop { grid-template-columns:1fr auto; padding:8px 10px; gap:6px; }
+      .shop .ico { display:none; }
+      .shop .line { font-size:11.5px; }
+      .goal { padding:8px 10px; gap:5px; }
+      .goal .amt { display:none; }
+      .step { grid-template-columns:36px minmax(0,1fr); }
+      .step .ico { width:36px; height:36px; grid-row:span 3; }
+      .step .act { grid-column:2; grid-row:auto; justify-self:start; }
+      .move { align-items:flex-start; }
       #status { top:calc(150px + env(safe-area-inset-top,0px)); }
       .task { bottom:calc(128px + env(safe-area-inset-bottom,0px)); }
     }
@@ -234,6 +303,19 @@
     <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1Z"/><path d="M17 9a4 4 0 0 1 0 6M7 14l1 5h2l-1-4.5"/></symbol>
     <symbol id="i-city" viewBox="0 0 24 24"><path d="M3 21h18M5 21V9l5-3v15M10 21V4l9 4v13"/><path d="M13 10h3M13 14h3M13 18h3"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 10h14v6H3zM5 10V7h10v3"/><circle cx="7" cy="19" r="2"/><path d="M17 12h3l1-3M13 16l1 3"/></symbol>
+    <symbol id="i-kiosk" viewBox="0 0 24 24"><path d="M4 21V10M20 21V10M3 10l2-5h14l2 5H3Z"/><path d="M8 21v-6h8v6M3 10a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/></symbol>
+    <symbol id="i-cartbig" viewBox="0 0 24 24"><path d="M3 4h2l2.4 10.2a1 1 0 0 0 1 .8h8.8a1 1 0 0 0 1-.8L20 7H6.2"/><circle cx="9" cy="19" r="1.6"/><circle cx="17" cy="19" r="1.6"/></symbol>
+    <symbol id="i-pot" viewBox="0 0 24 24"><path d="M4 11h16v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-6ZM2 11h20M9 7c0-1 1-1 1-2M13 7c0-1 1-1 1-2"/></symbol>
+    <symbol id="i-fuel" viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M6 8h6"/><path d="M14 10h2a2 2 0 0 1 2 2v4a1.5 1.5 0 0 0 3 0V8l-3-3"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></symbol>
+    <symbol id="i-umbrella" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 18 0H3ZM12 12v7a2 2 0 0 1-4 0M12 3v0"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-fridge" viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M5 10h14M9 6v2M9 13v3"/></symbol>
+    <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 2v20M4.9 6.5l14.2 11M19.1 6.5 4.9 17.5M9 4l3 2 3-2M9 20l3-2 3 2"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
   </svg>
 
   <div id="view"></div>
@@ -243,9 +325,8 @@
   <header class="topbar">
     <nav class="places glass" aria-label="Mekânlar">
       <button type="button" data-go="outdoor" style="--c:var(--c-street)" aria-current="true" title="Sokak (Esc)"><svg class="i"><use href="#i-street"/></svg><span>Sokak</span></button>
-      <button type="button" data-go="sales" style="--c:var(--c-sales)" title="Mağaza"><svg class="i"><use href="#i-bag"/></svg><span>Mağaza</span></button>
-      <button type="button" data-go="repair" style="--c:var(--c-repair)" title="Tamirhane"><svg class="i"><use href="#i-wrench"/></svg><span>Tamirhane</span></button>
-      <button type="button" data-go="scrap" style="--c:var(--c-scrap)" title="Hurdalık"><svg class="i"><use href="#i-scrap"/></svg><span>Hurdalık</span></button>
+      <button type="button" data-go="business" id="go-business" style="--c:var(--c-sales)" hidden><svg class="i"><use href="#i-kiosk" id="go-business-ico"/></svg><span id="go-business-name">Dükkan</span></button>
+      <button type="button" id="career-open" style="--c:var(--amber)" title="Esnaf yolu"><svg class="i"><use href="#i-flag"/></svg><span>Esnaf yolu</span></button>
     </nav>
 
     <div class="day glass" aria-label="Gün ve saat">
@@ -270,21 +351,17 @@
     </button>
   </header>
 
-  <aside class="shops" aria-label="Dükkanlar">
-    <button type="button" class="shop glass" data-go="sales" style="--c:var(--c-sales)">
-      <span class="ico"><svg class="i"><use href="#i-bag"/></svg></span>
-      <span><span class="name">Mağaza</span><span class="line" id="l-sales">Kasa boş</span></span>
-      <span class="badge" id="b-sales" title="Kasada bekleyen">0</span>
+  <aside class="side" aria-label="İşletmen">
+    <button type="button" class="shop glass" id="biz" style="--c:var(--c-scrap)">
+      <span class="ico"><svg class="i"><use href="#i-cart" id="biz-ico"/></svg></span>
+      <span><span class="name" id="biz-name">Seyyar Tezgâh</span><span class="line" id="biz-line">16/16 simit</span></span>
+      <span class="badge" id="biz-badge" title="Sırada bekleyen">0</span>
     </button>
-    <button type="button" class="shop glass" data-go="repair" style="--c:var(--c-repair)">
-      <span class="ico"><svg class="i"><use href="#i-wrench"/></svg></span>
-      <span><span class="name">Tamirhane</span><span class="line" id="l-repair">Sıra boş</span></span>
-      <span class="badge" id="b-repair" title="Tamir sırası">0</span>
-    </button>
-    <button type="button" class="shop glass" data-go="scrap" style="--c:var(--c-scrap)">
-      <span class="ico"><svg class="i"><use href="#i-scrap"/></svg></span>
-      <span><span class="name">Hurdalık</span><span class="line" id="l-scrap">Elinde 2 parça</span></span>
-      <span class="badge" id="b-scrap" title="Elindeki yedek parça">2</span>
+    <button type="button" class="goal glass" id="goal" style="--c:var(--amber)" data-ready="false">
+      <span class="top"><span><span class="k">Sıradaki hedef</span><span class="name"><svg class="i"><use href="#i-kiosk" id="goal-ico"/></svg><span id="goal-name">Küçük Büfe</span></span></span>
+        <span class="amt" id="goal-amt">₺40 / ₺500</span></span>
+      <span class="track"><span id="goal-fill"></span></span>
+      <span class="cta" id="goal-cta">Taşınmaya hazır · aç</span>
     </button>
   </aside>
 
@@ -296,9 +373,29 @@
   <div id="status" role="status" aria-live="polite"></div>
 
   <div class="keys glass" aria-label="Kontroller">
-    <span><kbd>Tık</kbd>seç / yürü</span><span><kbd>Sağ tık</kbd>kaydır</span><span><kbd>Tekerlek</kbd>yakınlaştır</span><span><kbd>Q</kbd><kbd>E</kbd>döndür</span>
+    <span><kbd>Tık</kbd>sat / seç</span><span><kbd>Sağ tık</kbd>kaydır</span><span><kbd>Tekerlek</kbd>yakınlaştır</span><span><kbd>Q</kbd><kbd>E</kbd>döndür</span>
   </div>
   <button type="button" class="helpbtn glass" id="help-open" aria-haspopup="dialog" aria-label="Nasıl oynanır"><svg class="i" style="width:22px;height:22px"><use href="#i-help"/></svg></button>
+
+  <dialog class="career" id="career" aria-labelledby="career-title">
+    <header>
+      <div>
+        <h2 id="career-title">Esnaf yolu</h2>
+        <p class="sub">Simit tezgâhından başla, para biriktirdikçe daha büyük bir işletmeye taşın. Taşınırken açılış bedelini ödersin; geliştirmeler yeni işletmende sıfırdan başlar.</p>
+      </div>
+      <button type="button" class="close" id="career-close" aria-label="Kapat"><svg class="i"><use href="#i-x"/></svg></button>
+    </header>
+    <ol class="ladder" id="ladder"></ol>
+    <footer>Kasandaki para: <b id="career-money" style="color:var(--amber);font:700 13px/1 var(--mono)">₺40</b></footer>
+  </dialog>
+
+  <dialog class="celebrate" id="celebrate" aria-labelledby="cel-title">
+    <div class="badge-ico"><svg class="i"><use href="#i-kiosk" id="cel-ico"/></svg></div>
+    <span class="k">Yeni işletme</span>
+    <h2 id="cel-title">Küçük Büfe açıldı</h2>
+    <p id="cel-text"></p>
+    <button type="button" class="buy" id="cel-ok">İşe koyul</button>
+  </dialog>
 
   <dialog class="drawer" id="upg" aria-labelledby="upg-title">
     <header>
@@ -308,12 +405,7 @@
       </div>
       <button type="button" class="close" id="upg-close" aria-label="Kapat"><svg class="i"><use href="#i-x"/></svg></button>
     </header>
-    <div class="tabs" role="tablist" aria-label="Dükkan">
-      <button type="button" role="tab" data-tab="sales" style="--c:var(--c-sales)"><svg class="i"><use href="#i-bag"/></svg>Mağaza</button>
-      <button type="button" role="tab" data-tab="repair" style="--c:var(--c-repair)"><svg class="i"><use href="#i-wrench"/></svg>Tamirhane</button>
-      <button type="button" role="tab" data-tab="scrap" style="--c:var(--c-scrap)"><svg class="i"><use href="#i-scrap"/></svg>Hurdalık</button>
-      <button type="button" role="tab" data-tab="city" style="--c:var(--amber)"><svg class="i"><use href="#i-city"/></svg>Şehir</button>
-    </div>
+    <div class="tabs" role="tablist" aria-label="Geliştirme türü" id="upg-tabs"></div>
     <div class="list" id="upg-list" role="tabpanel"></div>
     <footer>
       <span class="saved" id="saved">Oyun bu tarayıcıda otomatik kaydedilir</span>
@@ -331,26 +423,27 @@
       <h2 id="help-title">Nasıl oynanır</h2>
       <button type="button" class="close" id="help-close" aria-label="Kapat"><svg class="i"><use href="#i-x"/></svg></button>
     </header>
-    <p class="intro">Üç dükkanı aynı anda işletiyorsun. Sen birindeyken diğerlerine de müşteri gelir; sıraları soldaki kartlardan izle, gerektiğinde tek tıkla geç.</p>
+    <p class="intro">Kaldırımda bir simit tezgâhıyla başlıyorsun. Sat, para biriktir, büfeye, bakkala ve daha büyüğüne taşın.</p>
     <ol class="steps">
-      <li style="--c:var(--c-scrap)"><span class="ico"><svg class="i"><use href="#i-scrap"/></svg></span>
-        <div><b>Hurdalık: parça bul</b><span>Bir yığına tıkla, karakterin söksün. Acelen varsa tezgâhtan ₺14'e parça al.</span></div></li>
-      <li style="--c:var(--c-repair)"><span class="ico"><svg class="i"><use href="#i-wrench"/></svg></span>
-        <div><b>Tamirhane: cihaz onar</b><span>Resepsiyonda cihazı al, masada onar (1 parça), resepsiyonda teslim et: ₺55.</span></div></li>
+      <li style="--c:var(--c-scrap)"><span class="ico"><svg class="i"><use href="#i-cart"/></svg></span>
+        <div><b>Tezgâhta sat</b><span>Müşteri gelince tezgâha tıkla. Simit azalınca yanındaki kasalara tıklayıp mal al.</span></div></li>
+      <li style="--c:var(--c-repair)"><span class="ico"><svg class="i"><use href="#i-kiosk"/></svg></span>
+        <div><b>Büyü, taşın</b><span>Soldaki hedef kartı ne kadar kaldığını gösterir. Para yetince <b style="display:inline;font:inherit;color:var(--ink)">Esnaf yolu</b>ndan yeni işletmeni aç.</span></div></li>
       <li style="--c:var(--c-sales)"><span class="ico"><svg class="i"><use href="#i-bag"/></svg></span>
-        <div><b>Mağaza: satış yap</b><span>Kasaya tıklayıp ödemeyi al. Azalan rafa tıkla, doldur.</span></div></li>
-      <li style="--c:var(--amber)"><span class="ico"><svg class="i"><use href="#i-star"/></svg></span>
-        <div><b>İtibarını koru</b><span>Bekleyen müşterinin başındaki çubuk kırmızıya dönmeden ilgilen. Yüksek itibar daha çok müşteri getirir.</span></div></li>
+        <div><b>Dükkanı çevir</b><span>Büfe ve bakkalda kasaya tıklayıp ödeme al, azalan rafa ya da dolaba tıklayıp doldur.</span></div></li>
       <li style="--c:var(--amber)"><span class="ico"><svg class="i"><use href="#i-up"/></svg></span>
-        <div><b>Büyüt</b><span>Kazandığın parayla <b style="display:inline;font:inherit;color:var(--ink)">Geliştir</b> menüsünden yeni raflar, daha hızlı aletler, daha iyi anlaşmalar al. İlerleme otomatik kaydedilir.</span></div></li>
+        <div><b>Geliştir</b><span>Şemsiye, büyük tepsi, çırak, dolap, tabela… Her işletmenin kendi geliştirmeleri var. İlerleme otomatik kaydedilir.</span></div></li>
+      <li style="--c:var(--amber)"><span class="ico"><svg class="i"><use href="#i-star"/></svg></span>
+        <div><b>İtibarını koru</b><span>Başlardaki çubuk kırmızıya dönmeden ilgilen. Yüksek itibar daha çok müşteri getirir.</span></div></li>
     </ol>
     <div class="controls">
-      <span><kbd>Tık</kbd>dükkana gir, içeride yürü</span>
+      <span><kbd>Tık</kbd>sat, dükkana gir, içeride yürü</span>
       <span><kbd>Esc</kbd>sokağa dön</span>
       <span><kbd>Sağ tık</kbd>kamerayı kaydır</span>
       <span><kbd>Tekerlek</kbd>yakınlaştır</span>
       <span><kbd>Q</kbd><kbd>E</kbd>kamerayı döndür</span>
       <span><kbd>U</kbd>geliştirmeler</span>
+      <span><kbd>Y</kbd>esnaf yolu</span>
       <span><kbd>G</kbd>grafik kalitesi</span>
       <span>Mobil: <kbd>dokun</kbd>seç</span>
       <span><kbd>2 parmak</kbd>kaydır, yakınlaştır</span>

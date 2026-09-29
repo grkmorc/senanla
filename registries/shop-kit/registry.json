@@ -222,6 +222,36 @@
       ]
     },
     {
+      "name": "street-cart",
+      "type": "vibe3d:model",
+      "title": "Street Cart",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/street-cart.ts",
+          "target": "models/shop-kit/street-cart.ts"
+        }
+      ]
+    },
+    {
+      "name": "drinks-fridge",
+      "type": "vibe3d:model",
+      "title": "Drinks Fridge",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/drinks-fridge.ts",
+          "target": "models/shop-kit/drinks-fridge.ts"
+        }
+      ]
+    },
+    {
       "name": "kit",
       "type": "vibe3d:kit",
       "registryDependencies": [
@@ -236,7 +266,9 @@
         "@shop-kit/street-lamp",
         "@shop-kit/scrap-pile",
         "@shop-kit/car",
-        "@shop-kit/traffic-light"
+        "@shop-kit/traffic-light",
+        "@shop-kit/street-cart",
+        "@shop-kit/drinks-fridge"
       ]
     }
   ]

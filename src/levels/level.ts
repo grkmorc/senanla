@@ -7,7 +7,7 @@ import { Box3, Vector3, type Object3D, type Scene } from "three"
 import { NavGrid } from "@/app/nav-grid"
 import type { Mood } from "@/game/crowd"
 
-export type LevelId = "outdoor" | "sales" | "repair" | "scrap"
+export type LevelId = "outdoor" | "kiosk" | "grocery"
 
 export interface Interactable {
   id: string
@@ -22,10 +22,13 @@ export interface Interactable {
 }
 
 export interface WorldLabel {
-  text: string
+  /** Read every frame, so it may be a getter that follows game state. */
+  readonly text: string
   at: Vector3
   /** Accent for the name plate dot (CSS colour). */
-  color?: string
+  readonly color?: string
+  /** Plate style: your business, a place for rent, or not open yet. */
+  readonly kind?: "own" | "rent" | "soon" | "hidden"
 }
 
 export interface LevelContext {

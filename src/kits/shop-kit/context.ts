@@ -3,7 +3,7 @@
  * A kit is an explicit dependency scope, not a scene object or singleton.
  */
 import {
-  Group, Mesh, Material, BoxGeometry, CylinderGeometry, Vector3, Euler, Object3D,
+  Group, Mesh, Material, BoxGeometry, CylinderGeometry, TorusGeometry, Vector3, Euler, Object3D,
 } from "three"
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js"
 import {
@@ -51,6 +51,8 @@ export interface Builder {
   /** Box spanning min..max corners (keeps clearances exact). */
   span(part: string, slot: string, label: string, min: Vec3, max: Vec3, opts?: BoxOpts): Mesh
   cylinder(part: string, slot: string, label: string, radius: number, height: number, pos: Vec3, opts?: { rot?: Vec3; segments?: number; radiusTop?: number }): Mesh
+  /** Ring lying in the XZ plane (hole along Y) unless rotated. */
+  torus(part: string, slot: string, label: string, radius: number, tube: number, pos: Vec3, opts?: { rot?: Vec3; segments?: number }): Mesh
   /** Deterministic PRNG seeded from model id + config. */
   random(): number
 }
@@ -176,6 +178,8 @@ export function instantiateShopModel<Config extends object, Actions = Record<str
         const pos: Vec3 = [(max[0] + min[0]) / 2, (max[1] + min[1]) / 2, (max[2] + min[2]) / 2]
         return add(part, slot, label, boxGeo(size, o.bevel), pos, o.rot)
       },
+      torus: (part, slot, label, radius, tube, pos, o = {}) =>
+        add(part, slot, label, new TorusGeometry(radius, tube, 8, o.segments ?? 20).rotateX(Math.PI / 2), pos, o.rot),
       cylinder: (part, slot, label, radius, height, pos, o = {}) =>
         add(part, slot, label, new CylinderGeometry(o.radiusTop ?? radius, radius, height, o.segments ?? 16), pos, o.rot),
       random: rng,

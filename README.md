@@ -2,26 +2,28 @@
 
 Vibe3D uyumlu küçük bir registry (4 model) ve bunu kullanan tıkla-yürü izometrik sahne.
 
-![Sokak, gündüz](docs/preview.png)
+![Seyyar tezgâh](docs/preview.png)
 ![Sokak, akşam](docs/preview-evening.png)
 
 **Canlı demo:** https://grkmorc.github.io/senanla/
 
-## Oyun
+## Oyun: Esnaf yolu
 
-Oyun canlı bir şehir sokağında başlar: arabalar trafik ışıklı kavşaktan geçer, kırmızıda durur, yaya geçidinde yayaya yol verir; yayalar kaldırımlarda dolaşır. Sokakta karakter yoktur. Bizim üç dükkandan birine tıkla, içi açılsın. Üst çubuktaki **Sokak / Mağaza / Tamirhane / Hurdalık** sekmeleri ya da soldaki dükkan kartları ile her yerden anında geçebilirsin; **Esc** sokağa döner. Kartlar her dükkanın durumunu (sıra, azalan raf, elindeki parça) gösterir ve ilgi bekleyen dükkan sarı/kırmızı yanar. Dükkanların içinde karakterin tıkladığın yere yürür.
+Kaldırımda bir **seyyar simit tezgâhıyla** başlarsın. Sat, para biriktir, daha büyük bir işletmeye taşın.
 
-| Dükkan | Ne yapılır |
-| --- | --- |
-| **Mağaza** | Müşteriler raflardan ürün alıp kasada sıraya girer. Kasaya tıkla, ödemeyi al. Boşalan rafları ücret karşılığı doldur. |
-| **Tamirhane** | Müşteri arızalı cihaz getirir. Resepsiyonda al, tamir masasında onar (**1 yedek parça** harcar), resepsiyonda teslim et. |
-| **Hurdalık** | Hurda yığınlarını sökerek ücretsiz parça çıkar ya da tezgâhtan parayla parça al. Yığınlar zamanla ve her gün başında dolar. |
+| Basamak | Açılış | Nasıl oynanır |
+| --- | --- | --- |
+| **Seyyar Tezgâh** | başlangıç | Komşu binalardan çıkan müşteriler tezgâha gelip sıraya girer. Tezgâha tıkla, sat. Simit azalınca kasalara tıklayıp mal al. |
+| **Küçük Büfe** | ₺500 | İlk dükkanın. Müşteri içeri girer, dolaptan ve raftan alır, kasada sıraya girer. |
+| **Mahalle Bakkalı** | ₺2.000 | Raflar dolusu ürün, daha çok müşteri, daha yüksek sepet. |
+| Süpermarket | ₺12.000 | yakında |
+| Esnaf Lokantası · Benzin İstasyonu · Teknoloji Mağazası | ₺20.000+ | yakında (yan dallar) |
 
-Para, itibar, parça stoğu ve saat üç dükkan arasında ortaktır. Sen başka bir yerdeyken de dükkanlara müşteri gelmeye devam eder; bekleyen müşteri sabrını kaybedip giderse itibar düşer. HUD iki dükkanın sırasını her yerden gösterir.
-
-**Geliştirmeler:** Üst çubuktaki **Geliştir** butonu (ya da **U**) dükkan başına geliştirme panelini açar: ek raflar, ışıklı vitrin, seçkin ürünler, profesyonel alet seti, garanti belgesi, hidrolik makas, ayıklama bandı ve daha fazlası. Her geliştirmenin seviyeleri vardır; ilerleme bu tarayıcıda otomatik kaydedilir.
-
-Gün 08:00'de açılır, 20:00'de kapanır (3 dakika). Güneş gün boyunca döner; akşam sokak lambaları ve vitrinler yanar.
+- Sokaktaki boş binalar **KİRALIK · ₺fiyat** tabelası taşır; tıklayınca Esnaf yolu açılır.
+- Soldaki **hedef kartı** bir sonraki işletme için ne kadar biriktirdiğini gösterir; para yetince parlar.
+- **Geliştir (U)** o an işlettiğin yerin geliştirmelerini gösterir: şemsiye, büyük tepsi, çırak, ikinci dolap, tabela, kasiyer… **Şehir** sekmesindekiler her işletmede geçerlidir.
+- Çırak / tezgâhtar / kasiyer gibi yardımcılar sen başka işle uğraşırken sıradakine satış yapar.
+- İlerleme bu tarayıcıda otomatik kaydedilir.
 
 ## Yapı
 
@@ -41,18 +43,20 @@ src/models/shop-kit/street-lamp.ts       # sokak feneri, action: setOn
 src/models/shop-kit/scrap-pile.ts        # hurda yığını; amount azaldıkça küçülür
 src/models/shop-kit/car.ts               # araba: sedan/hatch/minibüs/taksi, dönen tekerlek, fren lambası
 src/models/shop-kit/traffic-light.ts     # trafik ışığı, action: setSignal (yaya lambası dahil)
+src/models/shop-kit/street-cart.ts       # seyyar simit tezgâhı: stok, tepsi katı, şemsiye
+src/models/shop-kit/drinks-fridge.ts     # cam kapılı içecek dolabı: stok
 src/app/engine.ts                    # motor: renderer, kamera, input, oyuncu, level geçişleri
 src/app/pawn.ts                      # eklemli oyuncu/müşteri karakterleri, yürüme animasyonu
 src/app/atmosphere.ts                # gün saatine bağlı güneş, gökyüzü ve iç mekân ışığı
 src/app/render-pipeline.ts           # GTAO + hover konturu + bloom + tone mapping (G: kalite)
 src/game/economy.ts                  # ortak para, itibar, parça, saat
+src/game/career.ts                   # kariyer basamakları (tezgâh → büfe → bakkal → …)
+src/game/cart-stall.ts               # seyyar tezgâh oyunu
+src/game/sales-floor.ts              # yürüyerek alışveriş yapılan dükkan (büfe, bakkal)
 src/game/crowd.ts                    # müşteri doğurma, sıra, ayrılma
-src/game/sales-floor.ts              # mağaza oyunu
-src/game/repair-desk.ts              # tamirhane oyunu
-src/game/scrap-yard.ts               # hurdalık oyunu
 src/game/upgrades.ts                 # geliştirme kataloğu (seviye, fiyat, etki) ve Stats
 src/game/save.ts                     # localStorage kayıt / yükleme / sıfırlama
-src/levels/                          # outdoor, sales, repair, scrap level'ları + ortak iç mekân iskeleti
+src/levels/                          # outdoor (sokak + tezgâh), kiosk (büfe), grocery (bakkal) + ortak iç mekân iskeleti
 src/sim/traffic.ts                   # şeritler, ışık döngüsü, takip mesafesi, yayaya yol verme
 src/sim/pedestrians.ts               # kaldırımda gezen, yaya geçidinden karşıya geçen yayalar
 src/app/iso-camera.ts                # gerçek izometrik (35.264°) Orthographic rig

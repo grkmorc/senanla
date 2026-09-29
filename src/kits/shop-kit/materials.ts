@@ -44,8 +44,12 @@ export type ShopSlot =
   | "signal.red"
   | "signal.green"
   | "surface.carGlass"
+  | "prop.simit"
+  | "surface.fridgeGlass"
+  | "prop.bottle"
+  | "surface.fridgeLight"
 
-interface SlotSpec { color: string; roughness: number; metalness: number; emissive?: string; emissiveIntensity?: number }
+interface SlotSpec { color: string; roughness: number; metalness: number; emissive?: string; emissiveIntensity?: number; opacity?: number }
 
 const DEFAULTS: Record<ShopSlot, SlotSpec> = {
   "surface.floor":      { color: "#6b5b4b", roughness: 0.85, metalness: 0.0 },
@@ -85,6 +89,10 @@ const DEFAULTS: Record<ShopSlot, SlotSpec> = {
   "signal.paint":       { color: "#e9e4d6", roughness: 0.7,  metalness: 0.0 },
   "surface.awningLight":{ color: "#efe6d2", roughness: 0.85, metalness: 0.0 },
   "signal.red":         { color: "#ff5a4a", roughness: 0.35, metalness: 0.0, emissive: "#ff2a1a", emissiveIntensity: 2.2 },
+  "surface.fridgeGlass":{ color: "#cfe6f2", roughness: 0.05, metalness: 0.1, opacity: 0.22 },
+  "prop.simit":         { color: "#b8743a", roughness: 0.75, metalness: 0.0 },
+  "prop.bottle":        { color: "#8fc8e8", roughness: 0.15, metalness: 0.1 },
+  "surface.fridgeLight":{ color: "#eef6fb", roughness: 0.4,  metalness: 0.0, emissive: "#dff0ff", emissiveIntensity: 0.55 },
   "surface.carGlass":   { color: "#1d2a33", roughness: 0.08, metalness: 0.7 },
   "signal.green":       { color: "#6dff9a", roughness: 0.35, metalness: 0.0, emissive: "#22e070", emissiveIntensity: 2.0 },
 }
@@ -109,6 +117,9 @@ export function createShopMaterialSource(): ShopMaterialSource {
       metalness: s.metalness,
       emissive: new Color(s.emissive ?? "#000000"),
       emissiveIntensity: s.emissiveIntensity ?? 0,
+      transparent: s.opacity !== undefined,
+      opacity: s.opacity ?? 1,
+      depthWrite: s.opacity === undefined,
     })
     m.name = `shop-kit/${slot}`
     return m

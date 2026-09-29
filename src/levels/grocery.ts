@@ -1,4 +1,4 @@
-/** Mağaza: the sales shop — shelves, till and walk-in buyers. */
+/** Mahalle Bakkalı: shelves, till and walk-in buyers. Third step of the career. */
 import { Box3, Vector3 } from "three"
 import { WALL_T } from "@/models/shop-kit/shop-floor"
 import { createModularShelf } from "@/models/shop-kit/modular-shelf"
@@ -10,7 +10,7 @@ import { SalesFloor, type ShelfSlot } from "@/game/sales-floor"
 import { buildInterior, socketWorld } from "./interior"
 import { navFor, type Interactable, type Level, type LevelId } from "./level"
 
-export function createSalesLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) => void): Level & { floor: SalesFloor } {
+export function createGroceryLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) => void): Level & { floor: SalesFloor } {
   const width = 12
   const depth = 10
   const room = buildInterior({ kit, floor: { width, depth }, pendants: [[2.6, 2.1], [-1.75, -2.95], [-3.9, 1.6]], clockX: 1.25, go })
@@ -37,14 +37,14 @@ export function createSalesLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) =
   ])
 
   const slots: ShelfSlot[] = shelves.map((m, i) => ({
-    id: `shelf-${i + 1}`, label: `Raf ${i + 1}`, model: m, spot: socketWorld(m, "front"), price: [8, 12, 6, 10, 14][i],
+    id: `shelf-${i + 1}`, label: `Raf ${i + 1}`, model: m, spot: socketWorld(m, "front"), price: [14, 18, 12, 16, 20][i],
   }))
-  const extraPrices = [11, 9]
+  const extraPrices = [17, 15]
   const sales = new SalesFloor(eco, {
     scene: room.scene, nav, entrance: room.entrance,
     queueHead: socketWorld(counter, "customer"), queueStep: new Vector3(-0.72, 0, 0.3), queueFacing: new Vector3(0, 0, -1),
     rng: mulberry32(1001),
-  }, slots)
+  }, slots, { where: "grocery", baseCustomers: 5, spawnBase: 10, patience: 40, restockFull: 40, till: socketWorld(counter, "cashier") })
 
   let playerPos = new Vector3()
   const shelfInteractable = (s: ShelfSlot): Interactable => ({
@@ -65,7 +65,7 @@ export function createSalesLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) =
   // Build any shelves the upgrades now call for (never removes: upgrades only go up).
   let built = 0
   const syncShelves = () => {
-    while (built < Math.min(eco.stats.salesExtraShelves, extraSpots.length)) {
+    while (eco.tier === "grocery" && built < Math.min(eco.stats.extraUnits, extraSpots.length)) {
       const spot = extraSpots[built]
       const m = place(createModularShelf(kit, spot.cfg), spot.x, spot.z, spot.rot)
       const box = new Box3().setFromObject(m.root)
@@ -81,8 +81,8 @@ export function createSalesLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) =
   syncShelves()
 
   return {
-    id: "sales",
-    title: "Mağaza",
+    id: "grocery",
+    title: "Mahalle Bakkalı",
     scene: room.scene,
     nav,
     bounds: { minX: -8, maxX: 8, minZ: -7, maxZ: 7 },

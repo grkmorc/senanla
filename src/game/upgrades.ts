@@ -1,41 +1,41 @@
 /**
- * Upgrades: a data-driven catalogue. Each upgrade has priced levels and an `apply`
- * that modifies derived game stats; game systems only ever read `Stats`, so adding an
- * upgrade is one catalogue entry (plus, optionally, a visual hook in its level).
+ * Upgrades: a data-driven catalogue. Each upgrade belongs to one business (or the city),
+ * has priced levels and an `apply` that modifies derived game stats. Only the upgrades of
+ * the business you run now (plus city-wide ones) count; game systems only read `Stats`.
  */
+import type { TierId } from "./career"
 
-export type UpgradeShop = "sales" | "repair" | "scrap" | "city"
+export type UpgradeShop = TierId | "city"
 
-/** Every tunable number the game systems read. Defaults are the un-upgraded game. */
+/** Every tunable number the game systems read. Defaults are the un-upgraded business. */
 export interface Stats {
-  /** Extra shelves unlocked in the shop (visual + stock). */
-  salesExtraShelves: number
-  /** Multiplier on the time between shop customers (lower = busier). */
-  salesSpawnMult: number
-  salesPriceMult: number
+  /** Items the cart holds when full. */
+  cartCapacity: number
+  /** Cart display tiers (visual). */
+  cartTray: 1 | 2 | 3
+  cartUmbrella: boolean
+  /** Extra display units unlocked (kiosk fridges / grocery shelves). */
+  extraUnits: number
+  /** Multiplier on the time between customers (lower = busier). */
+  spawnMult: number
+  priceMult: number
   restockCostMult: number
-  salesPatienceMult: number
-  repairTime: number
-  repairFee: number
-  repairPatienceMult: number
-  stripTime: number
-  bonusPartChance: number
-  partPrice: number
+  patienceMult: number
+  /** Seconds between automatic sales by a helper; 0 = no helper. */
+  autoServeEvery: number
   repGainMult: number
 }
 
 export const BASE_STATS: Readonly<Stats> = {
-  salesExtraShelves: 0,
-  salesSpawnMult: 1,
-  salesPriceMult: 1,
+  cartCapacity: 16,
+  cartTray: 1,
+  cartUmbrella: false,
+  extraUnits: 0,
+  spawnMult: 1,
+  priceMult: 1,
   restockCostMult: 1,
-  salesPatienceMult: 1,
-  repairTime: 4,
-  repairFee: 55,
-  repairPatienceMult: 1,
-  stripTime: 2.5,
-  bonusPartChance: 0,
-  partPrice: 14,
+  patienceMult: 1,
+  autoServeEvery: 0,
   repGainMult: 1,
 }
 
@@ -49,114 +49,135 @@ export interface UpgradeDef {
   icon: string
   /** Price of each level; length = max level. */
   costs: number[]
-  /** Human-readable value at a level (0 = not bought), e.g. "4,0 sn". */
+  /** Human-readable value at a level (0 = not bought). */
   value(level: number): string
   apply(stats: Stats, level: number): void
 }
 
 const pct = (x: number) => `%${Math.round(x * 100)}`
-const sec = (x: number) => `${x.toFixed(1).replace(".", ",")} sn`
-const tl = (x: number) => `₺${Math.round(x)}`
 const pick = <T>(arr: T[], level: number) => arr[Math.min(level, arr.length - 1)]
+const helper = (secs: number[]) => (l: number) => (l === 0 ? "yok" : `${pick(secs, l)} sn'de bir satış`)
 
 export const CATALOGUE: UpgradeDef[] = [
-  // ---------------------------------------------------------------- Mağaza
+  // ---------------------------------------------------------------- Seyyar tezgâh
   {
-    id: "sales.shelves", shop: "sales", icon: "i-shelf", name: "Ek raf ünitesi",
-    desc: "Mağazaya yeni raf kurulur; daha çok ürün, daha çok müşteri.",
-    costs: [120, 240],
+    id: "cart.tray", shop: "cart", icon: "i-layers", name: "Büyük tepsi",
+    desc: "Vitrine bir kat daha: tezgâh daha çok simit alır, daha seyrek mal alırsın.",
+    costs: [60, 140],
+    value: (l) => `${pick([16, 28, 40], l)} ürün`,
+    apply: (s, l) => { s.cartCapacity = pick([16, 28, 40], l); s.cartTray = (1 + l) as 1 | 2 | 3 },
+  },
+  {
+    id: "cart.umbrella", shop: "cart", icon: "i-umbrella", name: "Güneş şemsiyesi",
+    desc: "Gölgede bekleyen müşteri sırayı kolay kolay bırakmaz.",
+    costs: [45],
+    value: (l) => `sabır ${pct(pick([1, 1.5], l))}`,
+    apply: (s, l) => { s.patienceMult *= pick([1, 1.5], l); s.cartUmbrella = l > 0 },
+  },
+  {
+    id: "cart.call", shop: "cart", icon: "i-megaphone", name: "Taze simit çağrısı",
+    desc: "\"Simitçiii!\" diye seslen: yoldan geçenler daha sık uğrar.",
+    costs: [40, 110],
+    value: (l) => `${pick(["normal", "+%25", "+%50"], l)} müşteri`,
+    apply: (s, l) => { s.spawnMult *= pick([1, 0.8, 0.67], l) },
+  },
+  {
+    id: "cart.helper", shop: "cart", icon: "i-user", name: "Çırak",
+    desc: "Mahalleden bir çırak: sen olmasan da sıradakine simit verir.",
+    costs: [150],
+    value: helper([0, 6]),
+    apply: (s, l) => { if (l) s.autoServeEvery = 6 },
+  },
+  // ---------------------------------------------------------------- Küçük büfe
+  {
+    id: "kiosk.fridge", shop: "kiosk", icon: "i-fridge", name: "İkinci dolap",
+    desc: "Büfeye yeni bir içecek dolabı: daha çok çeşit, daha çok satış.",
+    costs: [260],
+    value: (l) => `${2 + l} dolap/raf`,
+    apply: (s, l) => { s.extraUnits = l },
+  },
+  {
+    id: "kiosk.sign", shop: "kiosk", icon: "i-sign", name: "Işıklı tabela",
+    desc: "Akşam da uzaktan görünür, müşteri daha sık uğrar.",
+    costs: [180, 380],
+    value: (l) => `${pick(["normal", "+%20", "+%40"], l)} müşteri`,
+    apply: (s, l) => { s.spawnMult *= pick([1, 0.83, 0.71], l) },
+  },
+  {
+    id: "kiosk.cold", shop: "kiosk", icon: "i-snow", name: "Buz gibi içecek",
+    desc: "Soğuk içeceğe herkes biraz fazla öder.",
+    costs: [220],
+    value: (l) => `fiyat ×${pick(["1,00", "1,20"], l)}`,
+    apply: (s, l) => { s.priceMult *= pick([1, 1.2], l) },
+  },
+  {
+    id: "kiosk.helper", shop: "kiosk", icon: "i-user", name: "Tezgâhtar",
+    desc: "Sen raf doldururken kasaya o bakar.",
+    costs: [420],
+    value: helper([0, 5]),
+    apply: (s, l) => { if (l) s.autoServeEvery = 5 },
+  },
+  // ---------------------------------------------------------------- Mahalle bakkalı
+  {
+    id: "grocery.shelves", shop: "grocery", icon: "i-shelf", name: "Ek raf ünitesi",
+    desc: "Bakkala yeni raf kurulur; daha çok ürün, daha çok müşteri.",
+    costs: [600, 1100],
     value: (l) => `${5 + l} raf`,
-    apply: (s, l) => { s.salesExtraShelves = l },
+    apply: (s, l) => { s.extraUnits = l },
   },
   {
-    id: "sales.sign", shop: "sales", icon: "i-sign", name: "Işıklı vitrin",
+    id: "grocery.sign", shop: "grocery", icon: "i-sign", name: "Işıklı vitrin",
     desc: "Vitrin dikkat çeker, müşteriler daha sık uğrar.",
-    costs: [90, 180, 320],
+    costs: [450, 900, 1600],
     value: (l) => `${pick(["normal", "+%14", "+%30", "+%50"], l)} müşteri`,
-    apply: (s, l) => { s.salesSpawnMult *= pick([1, 0.88, 0.77, 0.67], l) },
+    apply: (s, l) => { s.spawnMult *= pick([1, 0.88, 0.77, 0.67], l) },
   },
   {
-    id: "sales.premium", shop: "sales", icon: "i-gem", name: "Seçkin ürünler",
+    id: "grocery.premium", shop: "grocery", icon: "i-gem", name: "Seçkin ürünler",
     desc: "Raflara daha kaliteli mal girer, her satış daha çok kazandırır.",
-    costs: [150, 320],
+    costs: [700, 1500],
     value: (l) => `fiyat ×${pick(["1,00", "1,15", "1,32"], l)}`,
-    apply: (s, l) => { s.salesPriceMult *= pick([1, 1.15, 1.32], l) },
+    apply: (s, l) => { s.priceMult *= pick([1, 1.15, 1.32], l) },
   },
   {
-    id: "sales.supplier", shop: "sales", icon: "i-truck", name: "Tedarikçi anlaşması",
+    id: "grocery.supplier", shop: "grocery", icon: "i-truck", name: "Tedarikçi anlaşması",
     desc: "Toptancıyla anlaşma: raf doldurmak daha ucuza gelir.",
-    costs: [100, 210],
+    costs: [500, 1000],
     value: (l) => `dolum ${pct(pick([1, 0.8, 0.62], l))}`,
     apply: (s, l) => { s.restockCostMult *= pick([1, 0.8, 0.62], l) },
   },
   {
-    id: "sales.music", shop: "sales", icon: "i-music", name: "Fon müziği",
+    id: "grocery.music", shop: "grocery", icon: "i-music", name: "Fon müziği",
     desc: "Kasada bekleyenler daha sabırlı olur.",
-    costs: [70, 150],
-    value: (l) => `sabır ${pct(pick([1, 1.3, 1.6], l))}`,
-    apply: (s, l) => { s.salesPatienceMult *= pick([1, 1.3, 1.6], l) },
-  },
-  // ---------------------------------------------------------------- Tamirhane
-  {
-    id: "repair.tools", shop: "repair", icon: "i-wrench", name: "Profesyonel alet seti",
-    desc: "Daha iyi aletlerle her tamir daha kısa sürer.",
-    costs: [110, 240, 420],
-    value: (l) => sec(pick([4, 3.2, 2.5, 1.8], l)),
-    apply: (s, l) => { s.repairTime = pick([4, 3.2, 2.5, 1.8], l) },
+    costs: [350],
+    value: (l) => `sabır ${pct(pick([1, 1.4], l))}`,
+    apply: (s, l) => { s.patienceMult *= pick([1, 1.4], l) },
   },
   {
-    id: "repair.warranty", shop: "repair", icon: "i-shield", name: "Garanti belgesi",
-    desc: "Onarıma garanti verirsin, müşteri daha fazla öder.",
-    costs: [140, 290],
-    value: (l) => `${tl(55 + l * 15)} / tamir`,
-    apply: (s, l) => { s.repairFee += l * 15 },
+    id: "grocery.cashier", shop: "grocery", icon: "i-user", name: "Kasiyer",
+    desc: "Kasaya bakan biri olursa sen raflarla ilgilenirsin.",
+    costs: [900, 1800],
+    value: helper([0, 5, 3]),
+    apply: (s, l) => { if (l) s.autoServeEvery = pick([0, 5, 3], l) },
   },
+  // ---------------------------------------------------------------- Şehir (her işletmede geçerli)
   {
-    id: "repair.lounge", shop: "repair", icon: "i-sofa", name: "Bekleme salonu",
-    desc: "Rahat koltuklar ve çay: tamir bekleyenler sabırlanır.",
-    costs: [90, 190],
-    value: (l) => `sabır ${pct(pick([1, 1.35, 1.75], l))}`,
-    apply: (s, l) => { s.repairPatienceMult *= pick([1, 1.35, 1.75], l) },
-  },
-  // ---------------------------------------------------------------- Hurdalık
-  {
-    id: "scrap.shears", shop: "scrap", icon: "i-scissors", name: "Hidrolik makas",
-    desc: "Hurdayı çok daha hızlı sökersin.",
-    costs: [100, 220, 380],
-    value: (l) => sec(pick([2.5, 1.9, 1.4, 1.0], l)),
-    apply: (s, l) => { s.stripTime = pick([2.5, 1.9, 1.4, 1.0], l) },
-  },
-  {
-    id: "scrap.sorting", shop: "scrap", icon: "i-filter", name: "Ayıklama bandı",
-    desc: "Her sökümde ikinci bir parça çıkma şansı.",
-    costs: [130, 270],
-    value: (l) => `${pct(pick([0, 0.25, 0.5], l))} ek parça`,
-    apply: (s, l) => { s.bonusPartChance = pick([0, 0.25, 0.5], l) },
-  },
-  {
-    id: "scrap.deal", shop: "scrap", icon: "i-handshake", name: "Toptancı anlaşması",
-    desc: "Hurdalık tezgâhından parça almak ucuzlar.",
-    costs: [80, 180],
-    value: (l) => `${tl(pick([14, 11, 8], l))} / parça`,
-    apply: (s, l) => { s.partPrice = pick([14, 11, 8], l) },
-  },
-  // ---------------------------------------------------------------- Şehir
-  {
-    id: "city.ads", shop: "city", icon: "i-megaphone", name: "Gazete ilanı",
-    desc: "Adın duyulur: memnun müşteriler itibarını daha hızlı artırır.",
-    costs: [200, 420],
-    value: (l) => `itibar ${pct(pick([1, 1.25, 1.5], l))}`,
-    apply: (s, l) => { s.repGainMult *= pick([1, 1.25, 1.5], l) },
+    id: "city.ads", shop: "city", icon: "i-megaphone", name: "Mahalle dedikodusu",
+    desc: "Adın ağızdan ağıza yayılır: memnun müşteri itibarını daha hızlı artırır.",
+    costs: [120, 600, 2000],
+    value: (l) => `itibar ${pct(pick([1, 1.2, 1.4, 1.6], l))}`,
+    apply: (s, l) => { s.repGainMult *= pick([1, 1.2, 1.4, 1.6], l) },
   },
 ]
 
-export const SHOP_TITLES: Record<UpgradeShop, string> = {
-  sales: "Mağaza", repair: "Tamirhane", scrap: "Hurdalık", city: "Şehir",
+export const SHOP_TITLES: Record<string, string> = {
+  cart: "Seyyar Tezgâh", kiosk: "Küçük Büfe", grocery: "Mahalle Bakkalı", city: "Şehir",
 }
 
 export class Upgrades {
   private levels: Record<string, number> = {}
   private listeners: (() => void)[] = []
+  private tier: TierId = "cart"
   stats: Stats = { ...BASE_STATS }
 
   level(id: string) { return this.levels[id] ?? 0 }
@@ -167,9 +188,13 @@ export class Upgrades {
     if (!d || this.maxed(id)) return null
     return d.costs[this.level(id)]
   }
-  affordable(money: number) { return CATALOGUE.filter((d) => { const c = this.nextCost(d.id); return c !== null && c <= money }).length }
+  /** Upgrades that apply to the business you run now. */
+  current() { return CATALOGUE.filter((d) => d.shop === this.tier || d.shop === "city") }
+  affordable(money: number) { return this.current().filter((d) => { const c = this.nextCost(d.id); return c !== null && c <= money }).length }
 
   onChange(fn: () => void) { this.listeners.push(fn) }
+
+  setTier(t: TierId) { this.tier = t; this.recompute() }
 
   /** Raise one level. Caller pays; returns the new level. */
   raise(id: string): number {
@@ -191,7 +216,7 @@ export class Upgrades {
 
   private recompute() {
     const s: Stats = { ...BASE_STATS }
-    for (const d of CATALOGUE) d.apply(s, this.level(d.id))
+    for (const d of this.current()) d.apply(s, this.level(d.id))
     this.stats = s
     this.listeners.forEach((fn) => fn())
   }

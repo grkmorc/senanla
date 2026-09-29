@@ -11,15 +11,15 @@ import { createShopKit } from "@/kits/shop-kit/context"
 import { IsoCameraRig } from "./iso-camera"
 import { Pawn, disposePawnAssets } from "./pawn"
 import { RenderPipeline, defaultQuality } from "./render-pipeline"
-import { Economy, type Carry, type Tone } from "@/game/economy"
+import { Economy, type Tone } from "@/game/economy"
 import { loadGame, saveGame, clearSave } from "@/game/save"
 import type { Upgrades } from "@/game/upgrades"
 import type { Mood } from "@/game/crowd"
+import { nextTier, tierById, type Tier, type TierId } from "@/game/career"
 import type { Interactable, Level, LevelId } from "@/levels/level"
 import { createOutdoorLevel } from "@/levels/outdoor"
-import { createSalesLevel } from "@/levels/sales"
-import { createRepairLevel } from "@/levels/repair"
-import { createScrapLevel } from "@/levels/scrap"
+import { createKioskLevel } from "@/levels/kiosk"
+import { createGroceryLevel } from "@/levels/grocery"
 
 export interface HudState {
   location: string
@@ -27,16 +27,20 @@ export interface HudState {
   inside: boolean
   money: number
   reputation: number
-  parts: number
   day: number
   clock: string
   dayProgress: number
-  salesQueue: number
-  salesLow: number
-  repairQueue: number
-  repairWaiting: number
-  salvageLeft: number
-  carry: Carry
+  business: {
+    tier: TierId
+    name: string
+    /** Level to open for this business; null when it lives on the street. */
+    level: LevelId | null
+    queue: number
+    /** One plain line about stock, e.g. "12/16 simit" or "2 raf azaldı". */
+    stock: string
+    stockLow: boolean
+  }
+  next: Tier | null
   work: { text: string; progress: number } | null
   revenueToday: number
   /** Upgrades you could buy right now. */
@@ -50,6 +54,10 @@ export interface GameUi {
   overlay: HTMLElement
   /** Fade to black, run `swap`, fade back in. */
   fade(swap: () => void): void
+  /** Show the career roadmap, optionally highlighting one business. */
+  openCareer(focus?: TierId): void
+  /** A new business just opened. */
+  celebrate(tier: Tier): void
 }
 
 export interface GameHandle {
@@ -59,6 +67,11 @@ export interface GameHandle {
   go(id: LevelId): void
   readonly upgrades: Upgrades
   readonly money: number
+  readonly tier: TierId
+  /** Move up to a business (pays its price). */
+  advance(id: TierId): boolean
+  /** Level of the business you run now, or null for the street cart. */
+  readonly businessLevel: LevelId | null
   /** Buy the next level; returns the new level or null. */
   buy(id: string): number | null
   /** Wipe the save and start over. */
@@ -111,16 +124,23 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
   const resumed = loadGame(economy)
   economy.onNewDay(() => saveGame(economy))
   const go = (to: LevelId) => switchTo(to)
-  const levels: Record<LevelId, Level> = {
-    outdoor: createOutdoorLevel(kit, economy, go, windowGlass),
-    sales: createSalesLevel(kit, economy, go),
-    repair: createRepairLevel(kit, economy, go),
-    scrap: createScrapLevel(kit, economy, go),
-  }
+  const outdoor = createOutdoorLevel(kit, economy, go, windowGlass, (focus) => ui.openCareer(focus))
+  const kiosk = createKioskLevel(kit, economy, go)
+  const grocery = createGroceryLevel(kit, economy, go)
+  const levels: Record<LevelId, Level> = { outdoor, kiosk, grocery }
   let active: Level = levels.outdoor
-  const sales = levels.sales as ReturnType<typeof createSalesLevel>
-  const repair = levels.repair as ReturnType<typeof createRepairLevel>
-  const scrap = levels.scrap as ReturnType<typeof createScrapLevel>
+
+  const LEVEL_OF: Partial<Record<TierId, LevelId>> = { kiosk: "kiosk", grocery: "grocery" }
+  const floors = { kiosk: kiosk.floor, grocery: grocery.floor }
+  const applyTier = (t: TierId) => {
+    for (const [id, f] of Object.entries(floors)) {
+      const on = id === t
+      if (f.active && !on) f.clear()
+      f.active = on
+    }
+  }
+  economy.onTierChange(applyTier)
+  applyTier(economy.tier)
 
   // ---------------------------------------------------------------- player
   const player = new Pawn({ skin: "#e8c4a0", shirt: "#ece6da", pants: "#3a3f4a", hair: "#2a1d16", apron: "#2f6f6a" })
@@ -347,7 +367,6 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
     economy.update(dt)
     if (walkable(active)) player.update(dt)
     player.root.position.y = groundAt(player.root.position.x, player.root.position.z)
-    player.setCarry(economy.carry === "broken" ? "#e0822c" : economy.carry === "fixed" ? "#6fcf7c" : null)
     const ctx = { playerMoving: player.moving, playerPos: player.root.position }
     const idle = { playerMoving: true, playerPos: new Vector3(1e4, 0, 1e4) }
     for (const lv of Object.values(levels)) lv.update(dt, lv === active ? ctx : idle)
@@ -387,7 +406,12 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
     active.labels.forEach((l, i) => {
       const [x, y, z] = toScreen(l.at)
       const n = signs[i]
-      n.hidden = z > 1
+      const kind = l.kind ?? "own"
+      n.hidden = z > 1 || kind === "hidden"
+      if (n.hidden) return
+      const text = l.text
+      if (n.textContent !== text) n.textContent = text
+      if (n.dataset.kind !== kind) n.dataset.kind = kind
       n.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`
     })
 
@@ -426,16 +450,11 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
         inside: active.id !== "outdoor",
         money: economy.money,
         reputation: economy.reputation,
-        parts: economy.parts,
         day: economy.day,
         clock: economy.clock(),
         dayProgress: economy.dayProgress,
-        salesQueue: sales.floor.queueLength,
-        salesLow: sales.floor.lowShelves,
-        repairQueue: repair.desk.queueLength,
-        repairWaiting: repair.desk.waiting,
-        salvageLeft: scrap.yard.salvageLeft,
-        carry: economy.carry,
+        business: businessState(),
+        next: nextTier(economy.tier),
         work: active.work(),
         revenueToday: economy.revenueToday,
         affordableUpgrades: economy.upgrades.affordable(economy.money),
@@ -444,9 +463,38 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
     raf = requestAnimationFrame(tick)
   }
 
+  const businessState = (): HudState["business"] => {
+    const t = economy.tier
+    const name = tierById(t).name
+    if (t === "cart") {
+      const st = outdoor.stall
+      return { tier: t, name, level: null, queue: st.queueLength, stock: `${st.stock}/${st.capacity} simit`, stockLow: st.stock <= st.capacity * 0.25 }
+    }
+    const f = t === "kiosk" ? kiosk.floor : grocery.floor
+    const low = f.lowShelves
+    return { tier: t, name, level: LEVEL_OF[t] ?? null, queue: f.queueLength, stock: low ? `${low} raf azaldı` : "Raflar dolu", stockLow: low > 0 }
+  }
+
+  const advance = (id: TierId): boolean => {
+    if (!economy.openTier(id)) return false
+    saveGame(economy)
+    const t = tierById(id)
+    const lv = LEVEL_OF[id]
+    if (lv) {
+      switching = true
+      ui.fade(() => {
+        enterLevel(levels[lv], "outdoor")
+        switching = false
+        ui.celebrate(t)
+      })
+    } else ui.celebrate(t)
+    return true
+  }
+
   enterLevel(levels.outdoor, null)
   raf = requestAnimationFrame(tick)
-  ui.say(resumed ? `Kaldığın yerden devam · ${economy.day}. gün` : "Bir dükkana tıkla, içi açılsın · soldaki kartlar sıraları gösterir")
+  ui.say(resumed ? `Kaldığın yerden devam · ${tierById(economy.tier).name}, ${economy.day}. gün`
+    : "Seyyar tezgâhın hazır · müşteri gelince tezgâha tıkla, sat")
   const onHide = () => saveGame(economy)
   addEventListener("pagehide", onHide)
 
@@ -455,6 +503,9 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
     go: (id) => switchTo(id),
     upgrades: economy.upgrades,
     get money() { return economy.money },
+    get tier() { return economy.tier },
+    advance,
+    get businessLevel() { return LEVEL_OF[economy.tier] ?? null },
     buy: (id) => { const l = economy.buyUpgrade(id); if (l !== null) saveGame(economy); return l },
     reset: () => { removeEventListener("pagehide", onHide); clearSave(); location.reload() },
     dispose() {

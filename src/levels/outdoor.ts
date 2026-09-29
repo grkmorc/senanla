@@ -1,11 +1,12 @@
 /**
- * Sokak: a living city block around the three shops. Cars drive through a signalised
- * intersection, pedestrians use the sidewalks and zebra crossings, apartments and other
- * shops fill the street. There is no player here: click one of our shops to open it.
- * Trees are app-level set dressing (organic content is outside vibe-model's scope).
+ * Sokak: a living city block. Cars drive through a signalised intersection, pedestrians
+ * use the sidewalks and zebra crossings. Your business lives here too: first a simit cart
+ * on the sidewalk, later the shops along the street (empty ones carry a "for rent" plate).
+ * There is no player on the street: you click the cart, your shop, or a shop for rent.
+ * Trees, the vendor and crates are app-level set dressing.
  */
 import {
-  Scene, Vector3, PointLight, Mesh, Group, CylinderGeometry, IcosahedronGeometry,
+  Scene, Vector3, PointLight, Mesh, Group, CylinderGeometry, IcosahedronGeometry, BoxGeometry,
   MeshStandardMaterial, MathUtils,
 } from "three"
 import type { ShopKit } from "@/kits/shop-kit/context"
@@ -13,17 +14,19 @@ import type { ModelInstance } from "@/lib/vibe3d/model"
 import { createStreetBlock, ROAD_Y } from "@/models/shop-kit/street-block"
 import { createShopBuilding, type ShopBuildingConfig } from "@/models/shop-kit/shop-building"
 import { createStreetLamp } from "@/models/shop-kit/street-lamp"
-import { createScrapPile } from "@/models/shop-kit/scrap-pile"
+import { createStreetCart } from "@/models/shop-kit/street-cart"
 import { createTrafficLight, type TrafficLight } from "@/models/shop-kit/traffic-light"
 import { Atmosphere } from "@/app/atmosphere"
+import { Pawn } from "@/app/pawn"
 import { mulberry32, type Economy } from "@/game/economy"
+import { CartStall } from "@/game/cart-stall"
+import { TIERS, tierById, tierIndex, type TierId } from "@/game/career"
 import { Traffic, SignalController, type Lane } from "@/sim/traffic"
 import { Pedestrians, type Rect } from "@/sim/pedestrians"
 import { socketWorld } from "./interior"
 import { navFor, type Interactable, type Level, type LevelId, type WorldLabel } from "./level"
 
 type AnyModel = ModelInstance<any, any, any>
-type ShopId = Exclude<LevelId, "outdoor">
 
 // ---------------------------------------------------------------- city layout
 const W = 110
@@ -42,18 +45,18 @@ const NORTH_FRONT = S0 - 0.1
 const SOUTH_FRONT = S1 + 0.1
 
 interface Frontage {
-  id?: ShopId
-  name?: string
+  /** The career business this building houses, if any. */
+  role?: TierId
   x: number
   side: "n" | "s"
   config: Partial<ShopBuildingConfig>
 }
 
 const FRONTAGES: Frontage[] = [
-  // Our three shops, north side.
-  { id: "repair", name: "TAMİRHANE", x: -12.5, side: "n", config: { width: 7.5, depth: 6.5, facade: "brick", awning: "amber" } },
-  { id: "sales", name: "MAĞAZA", x: 0, side: "n", config: { width: 8.5, depth: 7, facade: "plaster", awning: "teal", upperFloors: 1 } },
-  { id: "scrap", name: "HURDALIK", x: 12.5, side: "n", config: { width: 7.5, depth: 6.5, facade: "metal", awning: "red", shutter: true } },
+  // Career businesses along the north side, smallest first.
+  { role: "kiosk", x: -12.5, side: "n", config: { width: 5.5, depth: 5.5, facade: "plaster", awning: "amber" } },
+  { role: "grocery", x: 0, side: "n", config: { width: 8.5, depth: 7, facade: "plaster", awning: "teal", upperFloors: 1 } },
+  { role: "supermarket", x: 14.5, side: "n", config: { width: 12, depth: 9, facade: "metal", awning: "none", shutter: true } },
   // Neighbours.
   { x: -24, side: "n", config: { width: 8, depth: 8, facade: "brick", awning: "none", upperFloors: 2 } },
   { x: -34.5, side: "n", config: { width: 8, depth: 7, facade: "plaster", awning: "amber", upperFloors: 1 } },
@@ -62,12 +65,19 @@ const FRONTAGES: Frontage[] = [
   { x: 52, side: "n", config: { width: 7.5, depth: 7, facade: "plaster", awning: "teal", upperFloors: 1 } },
   { x: -42, side: "s", config: { width: 10, depth: 9, facade: "brick", awning: "none", upperFloors: 3 } },
   { x: -30, side: "s", config: { width: 9, depth: 8, facade: "plaster", awning: "none", upperFloors: 2 } },
-  { x: -19.5, side: "s", config: { width: 7.5, depth: 7, facade: "brick", awning: "teal", upperFloors: 1 } },
-  { x: 42.5, side: "s", config: { width: 9, depth: 8, facade: "plaster", awning: "amber", upperFloors: 2 } },
+  { role: "restaurant", x: -19.5, side: "s", config: { width: 7.5, depth: 7, facade: "brick", awning: "red", upperFloors: 1 } },
+  { role: "tech", x: 42.5, side: "s", config: { width: 9, depth: 8, facade: "plaster", awning: "none", upperFloors: 2 } },
   { x: 52.5, side: "s", config: { width: 8, depth: 9, facade: "brick", awning: "none", upperFloors: 3 } },
 ]
 
-export function createOutdoorLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) => void, windowGlass: MeshStandardMaterial): Level {
+export interface OutdoorLevel extends Level {
+  stall: CartStall
+}
+
+export function createOutdoorLevel(
+  kit: ShopKit, eco: Economy, go: (to: LevelId) => void, windowGlass: MeshStandardMaterial,
+  openCareer: (focus: TierId) => void,
+): OutdoorLevel {
   const scene = new Scene()
   const models: AnyModel[] = []
   const rng = mulberry32(4242)
@@ -95,17 +105,31 @@ export function createOutdoorLevel(kit: ShopKit, eco: Economy, go: (to: LevelId)
       : place(createShopBuilding(kit, f.config), f.x, SOUTH_FRONT + depth / 2, Math.PI)
     return { f, model: m }
   })
-  const shops = buildings.filter((b) => b.f.id)
+  const shops = buildings.filter((b) => b.f.role)
 
-  // Salvage beside the scrapyard.
-  const junk = [
-    place(createScrapPile(kit, { radius: 1.2, variant: 11 }), 18.6, -2.4),
-    place(createScrapPile(kit, { radius: 0.9, variant: 23 }), 20.8, -5.6),
-  ]
+  // The simit cart on the north sidewalk, a vendor behind it and a stack of crates.
+  const CART = new Vector3(-6.8, 0, 1.05)
+  const cart = place(createStreetCart(kit), CART.x, CART.z)
+  const vendor = new Pawn({ skin: "#e8c4a0", shirt: "#ece6da", pants: "#3a3f4a", hair: "#2a1d16", apron: "#c8553d" }, 0)
+  vendor.root.position.set(CART.x, 0, CART.z - 0.78)
+  scene.add(vendor.root)
+  const crateMat = new MeshStandardMaterial({ color: "#b98b52", roughness: 0.8 })
+  const crateGeo = new BoxGeometry(0.55, 0.36, 0.42)
+  const crates = new Group()
+  crates.userData.excludeFromExport = true
+  ;[[0, 0.18, 0, 0], [0.04, 0.54, 0.02, 0.2], [0.6, 0.18, -0.02, -0.1]].forEach(([x, y, z, r]) => {
+    const m = new Mesh(crateGeo, crateMat)
+    m.position.set(x, y, z)
+    m.rotation.y = r
+    m.castShadow = m.receiveShadow = true
+    crates.add(m)
+  })
+  crates.position.set(CART.x - 1.55, 0, CART.z - 0.35)
+  scene.add(crates)
 
   // Street lamps along every kerb.
   const lampSpots: [number, number][] = [
-    ...[-50, -38, -29, -6.3, 6.3, 18.5, 44, 55].map((x) => [x, R0 - 0.55] as [number, number]),
+    ...[-50, -38, -29, -9.2, 6.3, 21, 44, 55].map((x) => [x, R0 - 0.55] as [number, number]),
     ...[-47, -36, -24, -8, 6, 20, 47].map((x) => [x, R1 + 0.55] as [number, number]),
     ...[-12, -24, -36].map((z) => [Q0 - 0.55, z] as [number, number]),
     ...[22, 32].map((z) => [Q1 + 0.55, z] as [number, number]),
@@ -172,7 +196,7 @@ export function createOutdoorLevel(kit: ShopKit, eco: Economy, go: (to: LevelId)
     [Q0, -D / 2, Q1, S0], [Q0, S1, Q1, D / 2],
   ]
   const nav = navFor(area,
-    [...buildings.map((b) => b.model), ...junk, ...lamps, ...heads.map((h) => h.model)].map((m) => m.root), 0.26, 0.35,
+    [...buildings.map((b) => b.model), cart, ...lamps, ...heads.map((h) => h.model)].map((m) => m.root).concat(crates), 0.26, 0.35,
     [...roadBlocks, ...trees.map(([x, z]) => [x - 0.2, z - 0.2, x + 0.2, z + 0.2] as [number, number, number, number])])
 
   const walkways: Rect[] = [
@@ -210,21 +234,90 @@ export function createOutdoorLevel(kit: ShopKit, eco: Economy, go: (to: LevelId)
     lamps.forEach((l) => l.actions.setOn(t > 0.55))
   }
 
-  // ---------------------------------------------------------------- interaction: shops only
-  const shopHint: Record<ShopId, string> = { sales: "Mağaza", repair: "Tamirhane", scrap: "Hurdalık" }
-  const interactables: Interactable[] = shops.map(({ f, model }) => ({
-    id: f.id!,
-    label: `${shopHint[f.id!]} · içeri gir`,
-    pick: model.root,
-    spot: () => socketWorld(model, "door"),
-    face: () => model.root.position,
-    interact: () => go(f.id!),
-  }))
-  const plate: Record<ShopId, string> = { sales: "#3fb3a3", repair: "#f0a53a", scrap: "#e0634e" }
-  const labels: WorldLabel[] = shops.map(({ f, model }) => ({ text: f.name!, at: socketWorld(model, "sign"), color: plate[f.id!] }))
+  // ---------------------------------------------------------------- the cart business
+  // Customers step out of neighbouring doors and the street corners.
+  const origins = buildings.filter((b) => !b.f.role && b.f.side === "n").map((b) => socketWorld(b.model, "door"))
+    .concat([new Vector3(-24, 0, 1.6), new Vector3(8, 0, 1.6), new Vector3(-2, 0, 11.5), new Vector3(-12, 0, 11.5)])
+  const stall = new CartStall(eco, {
+    scene, nav, entrance: new Vector3(),
+    queueHead: socketWorld(cart, "customer"), queueStep: new Vector3(0.75, 0, 0.06), queueFacing: new Vector3(0, 0, -1),
+    rng: mulberry32(777),
+  }, cart, origins)
 
-  const focusFor = (id: LevelId | null) => {
-    const b = shops.find((s) => s.f.id === id)
+  // ---------------------------------------------------------------- interaction
+  const interactables: Interactable[] = []
+  const cartThings: Interactable[] = [
+    {
+      id: "cart", get label() { return `Tezgâh · sat (${stall.stock}/${stall.capacity} simit)` }, pick: cart.root,
+      spot: () => CART, face: () => CART, interact: () => stall.serve(),
+    },
+    {
+      id: "crates", get label() { return stall.restockCost ? `Mal al · ₺${stall.restockCost}` : "Tezgâh dolu" }, pick: crates,
+      spot: () => CART, face: () => CART, interact: () => stall.restock(),
+    },
+  ]
+  const levelOf: Partial<Record<TierId, LevelId>> = { kiosk: "kiosk", grocery: "grocery" }
+  const shortName = (id: TierId) => tierById(id).name
+  const shopThings = shops.map(({ f, model }): Interactable => {
+    const id = f.role!
+    return {
+      id,
+      get label() {
+        const t = tierById(id)
+        if (id === eco.tier) return `${t.name} · içeri gir`
+        if (!t.ready) return `${t.name} · yakında`
+        return tierIndex(id) > tierIndex(eco.tier) ? `Kiralık · ${t.name} için ₺${t.cost.toLocaleString("tr-TR")}` : "Eski dükkanın"
+      },
+      pick: model.root,
+      spot: () => socketWorld(model, "door"),
+      face: () => model.root.position,
+      interact: () => {
+        const lv = levelOf[id]
+        if (id === eco.tier && lv) go(lv)
+        else if (tierIndex(id) > tierIndex(eco.tier)) openCareer(id)
+      },
+    }
+  })
+  const plateColor = (id: TierId) => TIERS.find((t) => t.id === id)!.color
+  const labels: WorldLabel[] = [
+    { get text() { return "SİMİT" }, at: CART.clone().setY(1.85), color: plateColor("cart"), get kind() { return eco.tier === "cart" ? "own" as const : "hidden" as const } },
+    ...shops.map(({ f, model }): WorldLabel => {
+      const id = f.role!
+      return {
+        get text() {
+          const t = tierById(id)
+          if (id === eco.tier) return t.name.toLocaleUpperCase("tr")
+          if (!t.ready) return `YAKINDA · ${shortName(id).toLocaleUpperCase("tr")}`
+          return `KİRALIK · ₺${t.cost.toLocaleString("tr-TR")}`
+        },
+        at: socketWorld(model, "sign"),
+        color: plateColor(id),
+        get kind() {
+          if (id === eco.tier) return "own" as const
+          if (tierIndex(id) < tierIndex(eco.tier)) return "hidden" as const
+          return tierById(id).ready ? "rent" as const : "soon" as const
+        },
+      }
+    }),
+  ]
+
+  // Rebuild the clickable set and the cart's presence whenever the business changes.
+  const applyTier = () => {
+    const onCart = eco.tier === "cart"
+    stall.active = onCart
+    if (!onCart) stall.clear()
+    cart.root.visible = vendor.root.visible = crates.visible = onCart
+    interactables.length = 0
+    if (onCart) interactables.push(...cartThings)
+    interactables.push(...shopThings.filter((it) => tierIndex(it.id as TierId) >= tierIndex(eco.tier)))
+  }
+  eco.onTierChange(applyTier)
+  applyTier()
+
+  const focusFor = (from: LevelId | null) => {
+    const id: TierId = from === "kiosk" ? "kiosk" : from === "grocery" ? "grocery" : eco.tier
+    if (id === "cart") return CART.clone().setZ(3)
+    const b = shops.find((s) => s.f.role === id)
     return new Vector3(b ? b.f.x : 0, 0, 3)
   }
 
@@ -244,7 +337,10 @@ export function createOutdoorLevel(kit: ShopKit, eco: Economy, go: (to: LevelId)
       return { pos: p, face: p.clone().setZ(p.z + 1) }
     },
     cameraFocus: focusFor,
+    stall,
     update(dt) {
+      stall.update(dt)
+      vendor.update(dt)
       signals.update(dt)
       for (const h of heads) h.model.actions.setSignal(signals.of(h.group))
       people.update(dt)
@@ -252,17 +348,19 @@ export function createOutdoorLevel(kit: ShopKit, eco: Economy, go: (to: LevelId)
       for (const m of models) m.update(dt)
     },
     setDayProgress(t) { atmosphere.setDayProgress(t) },
-    moods: () => [],
+    moods: () => stall.moods(),
     work: () => null,
-    debug: { traffic, people, signals },
+    debug: { traffic, people, signals, stall },
     dispose() {
       traffic.dispose()
       people.dispose()
+      stall.dispose()
+      vendor.dispose()
+      crateGeo.dispose(); crateMat.dispose()
       models.forEach((m) => m.dispose())
       atmosphere.dispose()
       trunkGeo.dispose(); crownGeo.dispose(); trunkMat.dispose()
       leafMats.forEach((m) => m.dispose())
-      void eco
     },
   }
 }

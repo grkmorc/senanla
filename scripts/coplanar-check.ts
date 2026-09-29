@@ -17,6 +17,8 @@ import { createModel as streetLamp } from "@/models/shop-kit/street-lamp"
 import { createModel as scrap } from "@/models/shop-kit/scrap-pile"
 import { createModel as car } from "@/models/shop-kit/car"
 import { createModel as tlight } from "@/models/shop-kit/traffic-light"
+import { createModel as cart } from "@/models/shop-kit/street-cart"
+import { createModel as fridge } from "@/models/shop-kit/drinks-fridge"
 
 const factories: Record<string, (k: ReturnType<typeof createShopKit>) => { root: Object3D; dispose(): void }> = {
   "shop-floor": (k) => floor(k, { width: 6, depth: 5 }),
@@ -37,6 +39,10 @@ const factories: Record<string, (k: ReturnType<typeof createShopKit>) => { root:
   "car-hatch": (k) => car(k, { style: "hatch", paint: "blue" }),
   "car-taxi": (k) => car(k, { style: "taxi" }),
   "traffic-light": (k) => tlight(k),
+  "street-cart": (k) => cart(k),
+  "street-cart-full": (k) => cart(k, { umbrella: true, tray: 3 }),
+  "drinks-fridge": (k) => fridge(k),
+  "drinks-fridge-wide": (k) => fridge(k, { width: 1.6, stock: 0.6, brand: "blue" }),
 }
 
 type Tri = { a: Vector3; b: Vector3; c: Vector3; mesh: string }

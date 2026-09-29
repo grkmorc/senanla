@@ -1,11 +1,11 @@
 /**
- * Shared economy across all three shops: money, reputation, spare parts,
- * what the player is carrying, and the shop-day clock.
+ * Shared economy: money, reputation, the business you run (career tier), upgrades and
+ * the shop-day clock.
  */
 import type { Vector3 } from "three"
 import { Upgrades } from "./upgrades"
+import { tierById, type TierId } from "./career"
 
-export type Carry = null | "broken" | "fixed"
 export type Tone = "gain" | "loss" | "info"
 
 export interface Notifier {
@@ -19,15 +19,15 @@ export const OPEN_H = 8
 export const CLOSE_H = 20
 
 export class Economy {
-  money = 150
-  reputation = 3
-  parts = 2
+  money = 40
+  reputation = 2.5
   day = 1
-  carry: Carry = null
+  tier: TierId = "cart"
   servedToday = 0
   revenueToday = 0
   private time = 0
   private readonly dayListeners: (() => void)[] = []
+  private readonly tierListeners: ((t: TierId) => void)[] = []
   readonly upgrades = new Upgrades()
 
   constructor(readonly notify: Notifier) {}
@@ -49,8 +49,26 @@ export class Economy {
     return level
   }
 
+  onTierChange(fn: (t: TierId) => void) { this.tierListeners.push(fn) }
+
+  /** Move up to a new business. Returns false (and explains why) if it can't be done. */
+  openTier(id: TierId): boolean {
+    const t = tierById(id)
+    if (!t.ready) { this.notify.say(`${t.name} yakında geliyor`); return false }
+    if (this.money < t.cost) { this.notify.say(`Para yetmiyor · ${t.name} için ₺${t.cost.toLocaleString("tr-TR")} lazım`); return false }
+    this.money -= t.cost
+    this.setTier(id)
+    return true
+  }
+
+  setTier(id: TierId) {
+    this.tier = id
+    this.upgrades.setTier(id)
+    this.tierListeners.forEach((fn) => fn(id))
+  }
+
   get dayProgress() { return this.time / DAY_SECONDS }
-  /** True during the last few in-game hours, when new customers stop arriving. */
+  /** True during the last in-game hour, when new customers stop arriving. */
   get closing() { return this.dayProgress > 0.92 }
 
   onNewDay(fn: () => void) { this.dayListeners.push(fn) }
