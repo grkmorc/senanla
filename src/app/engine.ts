@@ -21,6 +21,7 @@ import { createScrapLevel } from "@/levels/scrap"
 
 export interface HudState {
   location: string
+  levelId: LevelId
   inside: boolean
   money: number
   reputation: number
@@ -47,6 +48,8 @@ export interface GameUi {
 export interface GameHandle {
   dispose(): void
   exit(): void
+  /** Open a place directly (HUD shortcuts). */
+  go(id: LevelId): void
   readonly debug: {
     walkTo(x: number, z: number): boolean
     interact(id: string): boolean
@@ -144,21 +147,29 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
     return moodPool[i]
   }
 
+  const walkable = (lv: Level) => lv.walkable !== false
   const enterLevel = (lv: Level, from: LevelId | null) => {
     active.scene.remove(player.root, marker)
     for (const n of signEls.get(active) ?? []) n.hidden = true
     active = lv
     const a = lv.arrival(from)
     player.stop()
-    player.root.position.copy(a.pos).setY(groundAt(a.pos.x, a.pos.z))
-    player.faceTowards(a.face)
-    lv.scene.add(player.root, marker)
     rig.bounds = lv.bounds
     rig.minZoom = lv.zoom.min
     rig.maxZoom = lv.zoom.max
     rig.zoom = lv.zoom.initial
-    rig.follow = true
-    rig.focus.set(a.pos.x, 0, a.pos.z)
+    if (walkable(lv)) {
+      player.root.position.copy(a.pos).setY(groundAt(a.pos.x, a.pos.z))
+      player.faceTowards(a.face)
+      lv.scene.add(player.root, marker)
+      rig.follow = true
+      rig.focus.set(a.pos.x, 0, a.pos.z)
+    } else {
+      // The street is a simulation you watch; there is no player to follow.
+      rig.follow = false
+      const f = lv.cameraFocus?.(from) ?? a.pos
+      rig.focus.set(f.x, 0, f.z)
+    }
     rig.clampFocus()
     rig.snap()
     pipeline.setScene(lv.scene)
@@ -272,6 +283,7 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
     if (switching || !d || d.moved || d.multi || d.button !== 0 || e.type === "pointercancel") return
     setRay(e.clientX, e.clientY)
     const it = pick()
+    if (!walkable(active)) { if (it) it.interact(); return }
     if (it) { useThing(it); return }
     ground.constant = -groundAt(rig.focus.x, rig.focus.z)
     const hit = raycaster.ray.intersectPlane(ground, new Vector3())
@@ -313,7 +325,7 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
   // ---------------------------------------------------------------- simulation
   const simulate = (dt: number) => {
     economy.update(dt)
-    player.update(dt)
+    if (walkable(active)) player.update(dt)
     player.root.position.y = groundAt(player.root.position.x, player.root.position.z)
     player.setCarry(economy.carry === "broken" ? "#e0822c" : economy.carry === "fixed" ? "#6fcf7c" : null)
     const ctx = { playerMoving: player.moving, playerPos: player.root.position }
@@ -342,7 +354,7 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
       ;(marker.material as MeshBasicMaterial).opacity = markerT
       marker.scale.setScalar(1 + (1 - markerT) * 0.6)
     }
-    if (rig.follow) rig.focus.lerp(new Vector3(player.root.position.x, 0, player.root.position.z), 1 - Math.exp(-dt * 5))
+    if (rig.follow && walkable(active)) rig.focus.lerp(new Vector3(player.root.position.x, 0, player.root.position.z), 1 - Math.exp(-dt * 5))
     rig.clampFocus()
     rig.update(dt)
     lightT -= dt
@@ -387,6 +399,7 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
       hudT = 0.1
       ui.hud({
         location: active.title,
+        levelId: active.id,
         inside: active.id !== "outdoor",
         money: economy.money,
         reputation: economy.reputation,
@@ -406,10 +419,11 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
 
   enterLevel(levels.outdoor, null)
   raf = requestAnimationFrame(tick)
-  ui.say("Sokaktasın. Bir dükkana tıklayıp içeri gir")
+  ui.say("Bir dükkana tıkla, içi açılsın")
 
   return {
     exit: () => { if (active.id !== "outdoor") switchTo("outdoor") },
+    go: (id) => switchTo(id),
     dispose() {
       cancelAnimationFrame(raf)
       ro.disconnect()
@@ -428,7 +442,12 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
     },
     debug: {
       walkTo: (x, z) => walkTo(x, z),
-      interact: (id) => { const it = active.interactables.find((i) => i.id === id); return it ? useThing(it) : false },
+      interact: (id) => {
+        const it = active.interactables.find((i) => i.id === id)
+        if (!it) return false
+        if (!walkable(active)) { it.interact(); return true }
+        return useThing(it)
+      },
       enter: (id) => { if (id !== active.id) enterLevel(levels[id], active.id) },
       setView({ yawStep, zoom, focus }) {
         if (yawStep) rig.rotateStep(yawStep)

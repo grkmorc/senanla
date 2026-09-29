@@ -34,6 +34,8 @@ export interface LevelContext {
 export interface Level {
   readonly id: LevelId
   readonly title: string
+  /** False for the street: no player, free camera, clicks only open shops. */
+  readonly walkable?: boolean
   readonly scene: Scene
   readonly nav: NavGrid
   readonly bounds: { minX: number; maxX: number; minZ: number; maxZ: number }
@@ -43,6 +45,10 @@ export interface Level {
   /** Where the player appears when arriving from `from`. */
   arrival(from: LevelId | null): { pos: Vector3; face: Vector3 }
   update(dt: number, ctx: LevelContext): void
+  /** Camera target when arriving (non-walkable levels). */
+  cameraFocus?(from: LevelId | null): Vector3
+  /** Test hooks. */
+  readonly debug?: Record<string, unknown>
   /** Walking surface height; defaults to 0. */
   groundAt?(x: number, z: number): number
   setDayProgress(t: number): void

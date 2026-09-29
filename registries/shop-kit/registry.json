@@ -192,6 +192,36 @@
       ]
     },
     {
+      "name": "car",
+      "type": "vibe3d:model",
+      "title": "City Car",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/car.ts",
+          "target": "models/shop-kit/car.ts"
+        }
+      ]
+    },
+    {
+      "name": "traffic-light",
+      "type": "vibe3d:model",
+      "title": "Traffic Light",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/traffic-light.ts",
+          "target": "models/shop-kit/traffic-light.ts"
+        }
+      ]
+    },
+    {
       "name": "kit",
       "type": "vibe3d:kit",
       "registryDependencies": [
@@ -204,7 +234,9 @@
         "@shop-kit/shop-building",
         "@shop-kit/street-block",
         "@shop-kit/street-lamp",
-        "@shop-kit/scrap-pile"
+        "@shop-kit/scrap-pile",
+        "@shop-kit/car",
+        "@shop-kit/traffic-light"
       ]
     }
   ]

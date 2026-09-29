@@ -16,17 +16,19 @@ export interface ShopBuildingConfig {
   facade: "plaster" | "brick" | "metal"
   awning: "teal" | "amber" | "red" | "none"
   shutter: boolean
+  upperFloors: number
 }
 
 const PLINTH = 0.15
 const DOOR_H = 2.3
+const FLOOR_H = 3
 
 export const shopBuildingDefinition: ModelDefinition<ShopBuildingConfig> = {
   id: "shop-building",
   title: "Shop Building",
   description: "Single-storey shop exterior with door, windows or shutter, striped awning and a blank sign board.",
   categories: ["architecture", "exterior", "signage"],
-  defaults: { width: 8, depth: 7, height: 4, doorWidth: 1.4, facade: "plaster", awning: "teal", shutter: false },
+  defaults: { width: 8, depth: 7, height: 4, doorWidth: 1.4, facade: "plaster", awning: "teal", shutter: false, upperFloors: 0 },
   fields: {
     width: { type: "number", min: 4, max: 16, step: 0.5, unit: "m", doc: "Frontage width." },
     depth: { type: "number", min: 4, max: 16, step: 0.5, unit: "m", doc: "Building depth." },
@@ -35,12 +37,13 @@ export const shopBuildingDefinition: ModelDefinition<ShopBuildingConfig> = {
     facade: { type: "enum", options: ["plaster", "brick", "metal"], doc: "Facade finish; metal adds corrugation ribs." },
     awning: { type: "enum", options: ["teal", "amber", "red", "none"], doc: "Striped awning colour over the windows." },
     shutter: { type: "boolean", doc: "Replace the right window with a roller shutter bay." },
+    upperFloors: { type: "integer", min: 0, max: 4, step: 1, unit: "count", doc: "Residential floors above the shop, 3 m each." },
   },
   materialSlots: ["plaster", "brick", "metal", "plinth", "roof", "trim", "glass", "door", "sign", "awningLight", "awningTeal", "awningAmber", "awningRed", "hardware"],
   parts: ["shell", "openings", "awning", "sign", "roof"],
   sockets: ["door", "sign"],
   actions: [],
-  envelope: (c) => ({ width: c.width + 0.1, depth: c.depth + 1.1, height: c.height + 0.8 }),
+  envelope: (c) => ({ width: c.width + 0.1, depth: c.depth + 1.1, height: c.height + c.upperFloors * FLOOR_H + 0.8 }),
   capabilities: ["webgl"],
 }
 
@@ -80,13 +83,14 @@ const spec: ShopModelSpec<ShopBuildingConfig, Record<string, never>> = {
     const hd = c.depth / 2
     const fz = hd // facade plane
     const skin = c.facade
+    const top = c.height + c.upperFloors * FLOOR_H
 
     // Plinth course, 40 mm proud all round; shell above it.
     b.span("shell", "plinth", "plinth", [-hw - 0.04, 0, -hd - 0.04], [hw + 0.04, PLINTH, hd + 0.04])
-    b.span("shell", skin, "body", [-hw, PLINTH, -hd], [hw, c.height, hd])
+    b.span("shell", skin, "body", [-hw, PLINTH, -hd], [hw, top, hd])
     // Corner pilasters frame the facade.
     for (const s of [-1, 1]) {
-      b.span("shell", "trim", `pilaster-${s}`, [s < 0 ? -hw - 0.03 : hw - 0.22, PLINTH - 0.001, fz - 0.19], [s < 0 ? -hw + 0.22 : hw + 0.03, c.height + 0.001, fz + 0.035])
+      b.span("shell", "trim", `pilaster-${s}`, [s < 0 ? -hw - 0.03 : hw - 0.22, PLINTH - 0.001, fz - 0.19], [s < 0 ? -hw + 0.22 : hw + 0.03, top + 0.001, fz + 0.035])
     }
     if (skin === "metal") {
       // Vertical corrugation ribs on both side walls.
@@ -94,7 +98,7 @@ const spec: ShopModelSpec<ShopBuildingConfig, Record<string, never>> = {
         for (let z = -hd + 0.25; z < hd - 0.3; z += 0.32) {
           b.span("shell", "metal", `rib-${s}-${z.toFixed(2)}`,
             s < 0 ? [-hw - 0.025, PLINTH + 0.05, z] : [hw, PLINTH + 0.05, z],
-            s < 0 ? [-hw, c.height - 0.05, z + 0.06] : [hw + 0.025, c.height - 0.05, z + 0.06])
+            s < 0 ? [-hw, top - 0.05, z + 0.06] : [hw + 0.025, top - 0.05, z + 0.06])
         }
       }
     }
@@ -155,16 +159,37 @@ const spec: ShopModelSpec<ShopBuildingConfig, Record<string, never>> = {
     b.span("sign", "sign", "sign-board", [-signW / 2, c.height - 0.95, fz], [signW / 2, c.height - 0.25, fz + 0.08], { bevel: 0.015 })
     b.span("sign", "hardware", "sign-trim", [-signW / 2 - 0.03, c.height - 0.99, fz], [signW / 2 + 0.03, c.height - 0.95, fz + 0.1])
 
+    // Upper floors: a string course at each floor line and a row of framed windows,
+    // plus plain windows along the +X side wall (the side the isometric camera sees).
+    for (let f = 0; f < c.upperFloors; f++) {
+      const base = c.height + f * FLOOR_H
+      b.span("shell", "plinth", `band-${f}`, [-hw + 0.22, base - 0.12, fz], [hw - 0.22, base, fz + 0.05])
+      const n = Math.max(2, Math.floor((c.width - 1.2) / 1.9))
+      const pitch = (c.width - 1.2) / n
+      for (let i = 0; i < n; i++) {
+        const cx = -hw + 0.6 + (i + 0.5) * pitch
+        frontWindow(b, `up-${f}-${i}`, cx - 0.55, cx + 0.55, base + 0.85, base + 2.25, fz)
+      }
+      const m = Math.max(1, Math.floor((c.depth - 1.4) / 2.2))
+      const zp = (c.depth - 1.4) / m
+      for (let i = 0; i < m; i++) {
+        const cz = -hd + 0.7 + (i + 0.5) * zp
+        if (skin === "metal") continue
+        b.span("openings", "glass", `side-${f}-${i}`, [hw + 0.002, base + 0.85, cz - 0.5], [hw + 0.012, base + 2.25, cz + 0.5])
+        b.span("openings", "plinth", `side-sill-${f}-${i}`, [hw, base + 0.79, cz - 0.56], [hw + 0.07, base + 0.849, cz + 0.56])
+      }
+    }
+
     // Roof: membrane inset inside a 300 mm parapet; AC unit and vent.
     const p = 0.14
-    b.span("roof", "roof", "membrane", [-hw + p, c.height, -hd + p], [hw - p, c.height + 0.03, hd - p])
-    b.span("roof", "plinth", "parapet-front", [-hw - 0.02, c.height, hd - p], [hw + 0.02, c.height + 0.3, hd + 0.04])
-    b.span("roof", "plinth", "parapet-back", [-hw - 0.02, c.height, -hd - 0.04], [hw + 0.02, c.height + 0.3, -hd + p])
-    b.span("roof", "plinth", "parapet-left", [-hw - 0.02, c.height, -hd + p], [-hw + p, c.height + 0.3, hd - p])
-    b.span("roof", "plinth", "parapet-right", [hw - p, c.height, -hd + p], [hw + 0.02, c.height + 0.3, hd - p])
-    b.span("roof", "hardware", "ac-unit", [-hw + 0.8, c.height + 0.03, -hd + 0.8], [-hw + 1.9, c.height + 0.75, -hd + 1.6], { bevel: 0.03 })
-    b.cylinder("roof", "trim", "ac-fan", 0.3, 0.02, [-hw + 1.35, c.height + 0.76, -hd + 1.2], { segments: 24 })
-    b.cylinder("roof", "hardware", "vent", 0.12, 0.5, [hw - 1.2, c.height + 0.28, -hd + 1.0], { segments: 16 })
+    b.span("roof", "roof", "membrane", [-hw + p, top, -hd + p], [hw - p, top + 0.03, hd - p])
+    b.span("roof", "plinth", "parapet-front", [-hw - 0.02, top, hd - p], [hw + 0.02, top + 0.3, hd + 0.04])
+    b.span("roof", "plinth", "parapet-back", [-hw - 0.02, top, -hd - 0.04], [hw + 0.02, top + 0.3, -hd + p])
+    b.span("roof", "plinth", "parapet-left", [-hw - 0.02, top, -hd + p], [-hw + p, top + 0.3, hd - p])
+    b.span("roof", "plinth", "parapet-right", [hw - p, top, -hd + p], [hw + 0.02, top + 0.3, hd - p])
+    b.span("roof", "hardware", "ac-unit", [-hw + 0.8, top + 0.03, -hd + 0.8], [-hw + 1.9, top + 0.75, -hd + 1.6], { bevel: 0.03 })
+    b.cylinder("roof", "trim", "ac-fan", 0.3, 0.02, [-hw + 1.35, top + 0.76, -hd + 1.2], { segments: 24 })
+    b.cylinder("roof", "hardware", "vent", 0.12, 0.5, [hw - 1.2, top + 0.28, -hd + 1.0], { segments: 16 })
   },
   sockets: (c) => ({
     door: { kind: "nav.enter", at: [0, 0, c.depth / 2 + 0.8] },

@@ -22,14 +22,15 @@ const fade = (swap: () => void) => {
   }, 260)
 }
 
+const placeButtons = [...document.querySelectorAll<HTMLButtonElement>(".places button")]
+
 const carryText: Record<string, string> = {
   broken: "Elinde: arızalı cihaz → tamir masası",
   fixed: "Elinde: onarılmış cihaz → resepsiyon",
 }
 
 const hud = (s: HudState) => {
-  $("location").textContent = s.location
-  $("exit").hidden = !s.inside
+  for (const b of placeButtons) b.setAttribute("aria-current", String(b.dataset.go === s.levelId))
   $("money").textContent = `₺${s.money}`
   $("rep-fill").style.width = `${(s.reputation / 5) * 100}%`
   $("rep-value").textContent = s.reputation.toFixed(1)
@@ -51,5 +52,5 @@ const hud = (s: HudState) => {
 }
 
 const game = createGame($("view"), { say, hud, overlay: $("overlay"), fade })
-$("exit").addEventListener("click", () => game.exit())
+for (const b of placeButtons) b.addEventListener("click", () => game.go(b.dataset.go as Parameters<typeof game.go>[0]))
 ;(window as unknown as { __shop: typeof game }).__shop = game

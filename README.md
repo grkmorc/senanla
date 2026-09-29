@@ -9,7 +9,7 @@ Vibe3D uyumlu küçük bir registry (4 model) ve bunu kullanan tıkla-yürü izo
 
 ## Oyun
 
-Oyun bir sokakta başlar. Yan yana üç dükkan var; bir binaya tıklarsan karakterin kapıya yürür ve içeri girersin. İçeride paspasa tıklamak, **Dışarı çık** butonu ya da **Esc** seni sokağa geri çıkarır.
+Oyun canlı bir şehir sokağında başlar: arabalar trafik ışıklı kavşaktan geçer, kırmızıda durur, yaya geçidinde yayaya yol verir; yayalar kaldırımlarda dolaşır. Sokakta karakter yoktur. Bizim üç dükkandan birine tıkla, içi açılsın. HUD'daki **Sokak / Mağaza / Tamirhane / Hurdalık** butonlarıyla her yerden anında geçebilirsin; **Esc** sokağa döner. Dükkanların içinde karakterin tıkladığın yere yürür.
 
 | Dükkan | Ne yapılır |
 | --- | --- |
@@ -37,6 +37,8 @@ src/models/shop-kit/shop-building.ts     # dükkan dış cephesi: kapı, vitrin/
 src/models/shop-kit/street-block.ts      # sokak: arsa, kaldırım, bordür, yol çizgileri, yaya geçidi
 src/models/shop-kit/street-lamp.ts       # sokak feneri, action: setOn
 src/models/shop-kit/scrap-pile.ts        # hurda yığını; amount azaldıkça küçülür
+src/models/shop-kit/car.ts               # araba: sedan/hatch/minibüs/taksi, dönen tekerlek, fren lambası
+src/models/shop-kit/traffic-light.ts     # trafik ışığı, action: setSignal (yaya lambası dahil)
 src/app/engine.ts                    # motor: renderer, kamera, input, oyuncu, level geçişleri
 src/app/pawn.ts                      # eklemli oyuncu/müşteri karakterleri, yürüme animasyonu
 src/app/atmosphere.ts                # gün saatine bağlı güneş, gökyüzü ve iç mekân ışığı
@@ -47,6 +49,8 @@ src/game/sales-floor.ts              # mağaza oyunu
 src/game/repair-desk.ts              # tamirhane oyunu
 src/game/scrap-yard.ts               # hurdalık oyunu
 src/levels/                          # outdoor, sales, repair, scrap level'ları + ortak iç mekân iskeleti
+src/sim/traffic.ts                   # şeritler, ışık döngüsü, takip mesafesi, yayaya yol verme
+src/sim/pedestrians.ts               # kaldırımda gezen, yaya geçidinden karşıya geçen yayalar
 src/app/iso-camera.ts                # gerçek izometrik (35.264°) Orthographic rig
 src/app/nav-grid.ts                  # 8 yönlü A* + string-pull yol düzeltme
 scripts/coplanar-check.ts            # vibe-model kural 9 kontrolü
