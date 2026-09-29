@@ -4,7 +4,7 @@
  */
 import { Vector3, type Object3D } from "three"
 import type { NavGrid } from "@/app/nav-grid"
-import { Pawn } from "@/app/pawn"
+import { Pawn, CUSTOMER_LOOKS } from "@/app/pawn"
 import type { ModularShelf } from "@/models/shop-kit/modular-shelf"
 
 export interface ShelfSlot {
@@ -75,13 +75,6 @@ const REPAIR_FEE = 45
 const RESTOCK_COST_FULL = 36
 const PICK_AMOUNT = 0.12
 
-const LOOKS = [
-  { body: "#d9a47a", apron: "#4f7cac" },
-  { body: "#8c5a3c", apron: "#c8553d" },
-  { body: "#f0d2b0", apron: "#e3b23c" },
-  { body: "#b07850", apron: "#6a8d5a" },
-  { body: "#e8c4a0", apron: "#8e5c9e" },
-]
 
 export class ShopGame {
   money = 150
@@ -257,8 +250,8 @@ export class ShopGame {
 
   private spawn() {
     const repair = !this.repairJob && !this.queue.some((q) => q.kind === "repair") && this.rng() < 0.28
-    const look = LOOKS[Math.floor(this.rng() * LOOKS.length)]
-    const pawn = new Pawn({ ...look, carry: repair ? "#e0822c" : undefined }, 1.7 + this.rng() * 0.5)
+    const look = CUSTOMER_LOOKS[Math.floor(this.rng() * CUSTOMER_LOOKS.length)]
+    const pawn = new Pawn(look, 1.7 + this.rng() * 0.5)
     pawn.root.position.copy(this.d.entrance)
     pawn.root.rotation.y = Math.PI
     this.d.scene.add(pawn.root)
@@ -348,6 +341,17 @@ export class ShopGame {
     this.time = 0
     this.servedToday = 0
     this.revenueToday = 0
+  }
+
+  /** Customers whose patience is ticking, for over-head indicators. */
+  moods(): { pawn: Pawn; ratio: number; kind: "buyer" | "repair" }[] {
+    return this.customers
+      .filter((c) => c.state === "queued" || c.state === "waiting" || c.state === "toWaiting")
+      .map((c) => ({
+        pawn: c.pawn,
+        ratio: Math.max(0, c.patience / (c.state === "queued" ? QUEUE_PATIENCE : REPAIR_PATIENCE)),
+        kind: c.kind,
+      }))
   }
 
   hud(): HudState {

@@ -3,19 +3,22 @@
  * The app owns renderer, camera, loop, navigation, input and UI (Vibe3D consumer role).
  */
 import {
-  WebGLRenderer, Scene, Color, HemisphereLight, DirectionalLight, PointLight,
-  Vector2, Vector3, Raycaster, Plane, Mesh, RingGeometry, MeshBasicMaterial,
-  Box3, Box3Helper, Object3D, ACESFilmicToneMapping, PCFShadowMap, SRGBColorSpace,
+  WebGLRenderer, Scene, PointLight, Vector2, Vector3, Raycaster, Plane, Mesh, RingGeometry,
+  MeshBasicMaterial, Box3, Object3D, ACESFilmicToneMapping, PCFShadowMap, SRGBColorSpace,
 } from "three"
 import { createShopKit } from "@/kits/shop-kit/context"
 import { createShopFloor, WALL_T } from "@/models/shop-kit/shop-floor"
 import { createModularShelf } from "@/models/shop-kit/modular-shelf"
 import { createRepairBench } from "@/models/shop-kit/repair-bench"
 import { createCheckoutCounter } from "@/models/shop-kit/checkout-counter"
+import { createPendantLamp } from "@/models/shop-kit/pendant-lamp"
+import { createWallClock } from "@/models/shop-kit/wall-clock"
 import type { ModelInstance } from "@/lib/vibe3d/model"
 import { NavGrid } from "./nav-grid"
 import { IsoCameraRig } from "./iso-camera"
 import { Pawn, disposePawnAssets } from "./pawn"
+import { Atmosphere } from "./atmosphere"
+import { RenderPipeline, defaultQuality } from "./render-pipeline"
 import { ShopGame, type HudState, type ShelfSlot } from "@/game/shop-game"
 
 type AnyModel = ModelInstance<any, any, any>
@@ -55,22 +58,12 @@ export function createShopScene(container: HTMLElement, ui: ShopUi): ShopSceneHa
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
   renderer.outputColorSpace = SRGBColorSpace
   renderer.toneMapping = ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.05
+  renderer.toneMappingExposure = 1.0
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = PCFShadowMap
   container.appendChild(renderer.domElement)
 
   const scene = new Scene()
-  scene.background = new Color("#1a1c21")
-  scene.add(new HemisphereLight("#fff4e6", "#3a3f4a", 1.1))
-  const sun = new DirectionalLight("#fff1dc", 2.2)
-  sun.position.set(-5, 11, 9)
-  sun.castShadow = true
-  sun.shadow.mapSize.set(2048, 2048)
-  Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 40 })
-  sun.shadow.bias = -0.0004
-  sun.shadow.normalBias = 0.02
-  scene.add(sun)
 
   // ---------------------------------------------------------------- models
   const kit = createShopKit()
@@ -97,7 +90,25 @@ export function createShopScene(container: HTMLElement, ui: ShopUi): ShopSceneHa
   ]
   const bench = place(createRepairBench(kit, { vise: "right" }), 3.4, -hd + WALL_T + 0.375 + 0.03)
   const counter = place(createCheckoutCounter(kit, { registerSide: "right" }), 2.6, 2.1)
-  const models: AnyModel[] = [floor, ...shelves, bench, counter]
+
+  // Pendants hang above head height; they light the interior and are not nav obstacles.
+  const pendantSpots: [number, number][] = [[2.6, 2.1], [-1.75, -2.95], [-3.9, 1.6]]
+  const pendants = pendantSpots.map(([x, z]) => place(createPendantLamp(kit, { ceiling: 2.95, drop: 0.62 }), x, z))
+  // Shades would throw dark blobs onto the floor from the sun; pendants are light sources, not occluders.
+  for (const p of pendants) p.root.traverse((o) => { o.castShadow = false })
+  const interiorLights = pendants.map((p) => {
+    const l = new PointLight("#ffcf8a", 2, 5, 1.4)
+    l.userData.vibe3dRole = "pendant.light"
+    l.userData.excludeFromExport = true
+    l.position.copy(p.sockets.light.anchor.position)
+    p.parts.bulb.anchor.add(l) // consumer attachment on a stable anchor
+    return l
+  })
+  const clock = place(createWallClock(kit, { radius: 0.24 }), 1.25, -hd + WALL_T)
+  clock.root.position.y = 1.95
+
+  const blockers: AnyModel[] = [...shelves, bench, counter]
+  const models: AnyModel[] = [floor, ...blockers, ...pendants, clock]
 
   // Consumer-owned light parented to the lamp's stable anchor (survives rebuilds).
   const lampLight = new PointLight("#ffb45a", 3, 3.5, 1.6)
@@ -116,13 +127,13 @@ export function createShopScene(container: HTMLElement, ui: ShopUi): ShopSceneHa
   nav.blockRect(-hw, -hd, -hw + WALL_T, hd, AGENT_R)
   nav.blockBorder(AGENT_R)
   const tmpBox = new Box3()
-  for (const m of models.slice(1)) {
+  for (const m of blockers) {
     tmpBox.setFromObject(m.root)
     nav.blockRect(tmpBox.min.x, tmpBox.min.z, tmpBox.max.x, tmpBox.max.z, AGENT_R)
   }
 
   // ---------------------------------------------------------------- player
-  const player = new Pawn({ body: "#e8e1d4", apron: "#2f6f6a" })
+  const player = new Pawn({ skin: "#e8c4a0", shirt: "#ece6da", pants: "#3a3f4a", hair: "#2a1d16", apron: "#2f6f6a" })
   player.root.name = "app/player"
   const entrance = socketWorld(floor, "entrance")
   player.root.position.copy(socketWorld(counter, "cashier"))
@@ -151,7 +162,7 @@ export function createShopScene(container: HTMLElement, ui: ShopUi): ShopSceneHa
     nav,
     shelves: shelfSlots,
     queueHead: socketWorld(counter, "customer"),
-    queueStep: new Vector3(0.55, 0, 0.42),
+    queueStep: new Vector3(-0.72, 0, 0.3), // runs sideways on screen so the line stays readable
     waitingSpot: new Vector3(-1.4, 0, 3.6),
     entrance,
     say: ui.say,
@@ -191,15 +202,26 @@ export function createShopScene(container: HTMLElement, ui: ShopUi): ShopSceneHa
     ;(marker.material as MeshBasicMaterial).color.set(color)
     markerT = 1
   }
-  const hoverBox = new Box3Helper(new Box3(), new Color("#ffb347"))
-  hoverBox.visible = false
-  hoverBox.userData.excludeFromExport = true
-  scene.add(hoverBox)
 
   // ---------------------------------------------------------------- camera
   const rig = new IsoCameraRig(container.clientWidth / container.clientHeight)
   rig.focus.copy(player.root.position)
   rig.snap()
+  const atmosphere = new Atmosphere(scene, interiorLights)
+  const pipeline = new RenderPipeline(renderer, scene, rig.camera, defaultQuality())
+
+  // Patience bars above waiting customers (pooled DOM nodes).
+  const moodPool: HTMLElement[] = []
+  const moodEl = (i: number) => {
+    while (moodPool.length <= i) {
+      const el = document.createElement("div")
+      el.className = "mood"
+      el.innerHTML = "<span></span>"
+      ui.overlay.appendChild(el)
+      moodPool.push(el)
+    }
+    return moodPool[i]
+  }
 
   // ---------------------------------------------------------------- movement
   const walkTo = (x: number, z: number, then: (() => void) | null = null): boolean => {
@@ -282,8 +304,7 @@ export function createShopScene(container: HTMLElement, ui: ShopUi): ShopSceneHa
     if (e.pointerType !== "mouse") return
     setRay(e.clientX, e.clientY)
     const p = pickPlaced()
-    hoverBox.visible = !!p
-    if (p) hoverBox.box.setFromObject(p.model.root)
+    pipeline.setHover(p ? [p.model.root] : [])
     el.style.cursor = p ? "pointer" : "crosshair"
   })
   const endPointer = (e: PointerEvent) => {
@@ -311,13 +332,18 @@ export function createShopScene(container: HTMLElement, ui: ShopUi): ShopSceneHa
     else if (k === "e") rig.rotateStep(1)
     else if (k === "f" || k === " ") { rig.follow = true; ui.say("Kamera karakteri takip ediyor") }
     else if (k === "c") { rig.follow = !rig.follow; ui.say(rig.follow ? "Takip açık" : "Serbest kamera") }
+    else if (k === "g") {
+      pipeline.setQuality(pipeline.quality === "high" ? "low" : "high")
+      resize()
+      ui.say(pipeline.quality === "high" ? "Grafik: yüksek" : "Grafik: düşük")
+    }
   }
   addEventListener("keydown", onKey)
 
   const resize = () => {
     const w = container.clientWidth
     const h = container.clientHeight
-    renderer.setSize(w, h)
+    pipeline.setSize(w, h)
     rig.setAspect(w / h)
   }
   const ro = new ResizeObserver(resize)
@@ -349,7 +375,25 @@ export function createShopScene(container: HTMLElement, ui: ShopUi): ShopSceneHa
 
     if (rig.follow) rig.focus.lerp(new Vector3(player.root.position.x, 0, player.root.position.z), 1 - Math.exp(-dt * 5))
     rig.update(dt)
-    renderer.render(scene, rig.camera)
+    const state = game.hud()
+    atmosphere.setDayProgress(state.dayProgress)
+    const hours = 8 + state.dayProgress * 12
+    clock.actions.setTime(Math.floor(hours), (hours % 1) * 60)
+    pipeline.render(dt)
+
+    // Patience bars: green -> amber -> red as the customer's patience runs out.
+    const moods = game.moods()
+    moods.forEach((m, i) => {
+      const node = moodEl(i)
+      node.hidden = false
+      m.pawn.headTop(proj).project(rig.camera)
+      node.style.transform = `translate(${(proj.x * 0.5 + 0.5) * el.clientWidth}px, ${(-proj.y * 0.5 + 0.5) * el.clientHeight}px) translate(-50%, -100%)`
+      const bar = node.firstElementChild as HTMLElement
+      bar.style.width = `${m.ratio * 100}%`
+      node.dataset.level = m.ratio > 0.5 ? "ok" : m.ratio > 0.25 ? "warn" : "bad"
+      node.dataset.kind = m.kind
+    })
+    for (let i = moods.length; i < moodPool.length; i++) moodPool[i].hidden = true
 
     // Floating labels rise and fade over 1.4 s.
     for (let i = labels.length - 1; i >= 0; i--) {
@@ -362,7 +406,7 @@ export function createShopScene(container: HTMLElement, ui: ShopUi): ShopSceneHa
     }
 
     hudT -= dt
-    if (hudT <= 0) { ui.hud(game.hud()); hudT = 0.1 }
+    if (hudT <= 0) { ui.hud(state); hudT = 0.1 }
     raf = requestAnimationFrame(tick)
   }
   raf = requestAnimationFrame(tick)
@@ -381,7 +425,9 @@ export function createShopScene(container: HTMLElement, ui: ShopUi): ShopSceneHa
       kit.dispose()
       marker.geometry.dispose()
       ;(marker.material as MeshBasicMaterial).dispose()
-      hoverBox.dispose()
+      moodPool.forEach((n) => n.remove())
+      atmosphere.dispose()
+      pipeline.dispose()
       renderer.dispose()
       el.remove()
     },

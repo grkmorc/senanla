@@ -34,6 +34,12 @@
       font:500 13px/1.3 var(--mono); white-space:nowrap; max-width:calc(100vw - 32px); overflow:hidden; text-overflow:ellipsis; }
     #status.show { opacity:1; transform:translate(-50%,0); }
     .pop { position:absolute; left:0; top:0; font:600 15px/1 var(--mono); text-shadow:0 1px 3px rgba(0,0,0,.7); white-space:nowrap; }
+    .mood { position:absolute; left:0; top:0; width:38px; height:6px; border-radius:3px; background:rgba(15,16,19,.75);
+      box-shadow:0 0 0 1px rgba(236,230,218,.18); overflow:hidden; }
+    .mood > span { display:block; height:100%; background:var(--gain); transition:width .15s linear; }
+    .mood[data-level="warn"] > span { background:var(--amber); }
+    .mood[data-level="bad"] > span { background:var(--loss); }
+    .mood[data-kind="repair"] { box-shadow:0 0 0 1px #e0822c; }
     .pop-gain { color:var(--gain); } .pop-loss { color:var(--loss); } .pop-info { color:var(--ink); }
     @media (max-width:640px) {
       .help { display:none; }
@@ -70,6 +76,7 @@
       <li><b>Raf</b>: boşalan rafı doldur (ücretli)</li>
       <li><b>Turuncu kutu</b>: tamir işi. Kasada al, masada onar, kasada teslim et</li>
       <li><b>Sol tık</b>: yürü · <b>Sağ tık</b>: kaydır · <b>Tekerlek</b>: zoom · <b>Q/E</b>: döndür</li>
+      <li><b>Başlardaki çubuk</b>: müşterinin sabrı · <b>G</b>: grafik kalitesi</li>
       <li>Mobilde dokun: yürü · iki parmak: kaydır ve yakınlaştır</li>
     </ul>
   </section>

@@ -13,6 +13,8 @@ export interface ShopFloorConfig {
   tileSize: number
   walls: boolean
   wallHeight: number
+  wainscot: boolean
+  doormat: boolean
 }
 
 export const SLAB = 0.12
@@ -25,16 +27,18 @@ export const shopFloorDefinition: ModelDefinition<ShopFloorConfig> = {
   title: "Shop Floor",
   description: "Tiled floor slab; optional back and left walls for an open-front isometric shop.",
   categories: ["architecture", "floor"],
-  defaults: { width: 12, depth: 10, tileSize: 1, walls: true, wallHeight: 2.6 },
+  defaults: { width: 12, depth: 10, tileSize: 1, walls: true, wallHeight: 2.6, wainscot: true, doormat: true },
   fields: {
     width: { type: "number", min: 4, max: 40, step: 0.5, unit: "m", doc: "Slab width along X." },
     depth: { type: "number", min: 4, max: 40, step: 0.5, unit: "m", doc: "Slab depth along Z." },
     tileSize: { type: "number", min: 0.25, max: 2, step: 0.25, unit: "m", doc: "Square tile edge." },
     walls: { type: "boolean", doc: "Build back (-Z) and left (-X) walls." },
     wallHeight: { type: "number", min: 1, max: 5, step: 0.1, unit: "m", doc: "Wall height above floor." },
+    wainscot: { type: "boolean", doc: "Painted lower wall panelling with a chair rail." },
+    doormat: { type: "boolean", doc: "Rubber mat at the open front entrance." },
   },
-  materialSlots: ["slab", "tile", "tileAlt", "wall", "trim"],
-  parts: ["slab", "tiles", "walls"],
+  materialSlots: ["slab", "tile", "tileAlt", "tileLight", "wall", "trim", "wainscot", "mat"],
+  parts: ["slab", "tiles", "walls", "mat"],
   sockets: ["entrance"],
   actions: [],
   envelope: (c) => ({ width: c.width, depth: c.depth, height: c.walls ? c.wallHeight : TILE_H }),
@@ -46,9 +50,12 @@ const spec: ShopModelSpec<ShopFloorConfig, Record<string, never>> = {
   slotMap: {
     slab: "surface.floorTrim",
     tile: "surface.floor",
-    tileAlt: "surface.woodDark",
+    tileAlt: "surface.floorAlt",
+    tileLight: "surface.floorLight",
     wall: "surface.counterTop",
     trim: "surface.woodDark",
+    wainscot: "surface.wainscot",
+    mat: "surface.mat",
   },
   build(b, c) {
     const hw = c.width / 2
@@ -65,8 +72,10 @@ const spec: ShopModelSpec<ShopFloorConfig, Record<string, never>> = {
       for (let iz = 0; iz < nz; iz++) {
         const ax = x0 + ix * c.tileSize + GROUT / 2
         const az = z0 + iz * c.tileSize + GROUT / 2
-        const alt = (ix + iz) % 2 === 1 && b.random() > 0.15
-        b.span("tiles", alt ? "tileAlt" : "tile", `tile-${ix}-${iz}`,
+        // Checkerboard with a few lighter, worn tiles so the floor does not read as a flat texture.
+        const r = b.random()
+        const slot = (ix + iz) % 2 === 1 ? (r > 0.12 ? "tileAlt" : "tile") : r > 0.88 ? "tileLight" : "tile"
+        b.span("tiles", slot, `tile-${ix}-${iz}`,
           [ax, 0, az], [ax + c.tileSize - GROUT, TILE_H, az + c.tileSize - GROUT], { bevel: 0.004 })
       }
     }
@@ -80,9 +89,22 @@ const spec: ShopModelSpec<ShopFloorConfig, Record<string, never>> = {
       const s = 0.12
       b.span("walls", "trim", "skirting-back", [-hw + WALL_T, TILE_H, -hd + WALL_T], [hw, s, -hd + WALL_T + 0.015])
       b.span("walls", "trim", "skirting-left", [-hw + WALL_T, TILE_H, -hd + WALL_T + 0.015], [-hw + WALL_T + 0.015, s, hd])
+      if (c.wainscot) {
+        // Panelling 8 mm proud of the wall, starting above the skirting; chair rail 20 mm proud.
+        const f = WALL_T
+        const top = Math.min(1.0, c.wallHeight - 0.3)
+        b.span("walls", "wainscot", "wainscot-back", [-hw + f, 0.13, -hd + f], [hw, top, -hd + f + 0.008])
+        b.span("walls", "wainscot", "wainscot-left", [-hw + f, 0.13, -hd + f + 0.008], [-hw + f + 0.008, top, hd])
+        b.span("walls", "trim", "chair-rail-back", [-hw + f, top, -hd + f], [hw, top + 0.035, -hd + f + 0.02], { bevel: 0.004 })
+        b.span("walls", "trim", "chair-rail-left", [-hw + f, top + 0.001, -hd + f + 0.02], [-hw + f + 0.02, top + 0.034, hd], { bevel: 0.004 })
+      }
       // Cap rail on top of the walls.
       b.span("walls", "trim", "cap-back", [-hw - 0.02, c.wallHeight, -hd - 0.02], [hw + 0.02, c.wallHeight + 0.05, -hd + WALL_T + 0.02])
       b.span("walls", "trim", "cap-left", [-hw - 0.019, c.wallHeight + 0.001, -hd + WALL_T + 0.02], [-hw + WALL_T + 0.02, c.wallHeight + 0.049, hd + 0.02])
+    }
+    if (c.doormat) {
+      const hd2 = c.depth / 2
+      b.span("mat", "mat", "doormat", [-0.9, TILE_H, hd2 - 1.1], [0.9, TILE_H + 0.012, hd2 - 0.2], { bevel: 0.005 })
     }
   },
   sockets: (c) => ({ entrance: { kind: "nav.spawn", at: [0, 0, c.depth / 2 - 0.6] } }),

@@ -20,6 +20,13 @@ export type ShopSlot =
   | "prop.goodsA"
   | "prop.goodsB"
   | "prop.goodsC"
+  | "surface.floorAlt"
+  | "surface.floorLight"
+  | "surface.mat"
+  | "surface.wainscot"
+  | "surface.clockFace"
+  | "surface.shade"
+  | "signal.warm"
 
 interface SlotSpec { color: string; roughness: number; metalness: number; emissive?: string; emissiveIntensity?: number }
 
@@ -39,6 +46,13 @@ const DEFAULTS: Record<ShopSlot, SlotSpec> = {
   "prop.goodsA":        { color: "#c8553d", roughness: 0.6,  metalness: 0.0 },
   "prop.goodsB":        { color: "#e3b23c", roughness: 0.6,  metalness: 0.0 },
   "prop.goodsC":        { color: "#4f7cac", roughness: 0.6,  metalness: 0.0 },
+  "surface.floorAlt":   { color: "#58473a", roughness: 0.8,  metalness: 0.0 },
+  "surface.floorLight": { color: "#7d6a55", roughness: 0.82, metalness: 0.0 },
+  "surface.mat":        { color: "#6b2e2a", roughness: 0.98, metalness: 0.0 },
+  "surface.wainscot":   { color: "#35625c", roughness: 0.6,  metalness: 0.05 },
+  "surface.clockFace":  { color: "#efe8d8", roughness: 0.45, metalness: 0.0 },
+  "surface.shade":      { color: "#1f3f3b", roughness: 0.45, metalness: 0.35 },
+  "signal.warm":        { color: "#fff0d0", roughness: 0.3,  metalness: 0.0, emissive: "#ffd79a", emissiveIntensity: 2.4 },
 }
 
 export interface ShopMaterialSource {

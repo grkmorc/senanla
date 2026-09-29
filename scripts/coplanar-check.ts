@@ -9,12 +9,16 @@ import { createModel as floor } from "@/models/shop-kit/shop-floor"
 import { createModel as shelf } from "@/models/shop-kit/modular-shelf"
 import { createModel as bench } from "@/models/shop-kit/repair-bench"
 import { createModel as counter } from "@/models/shop-kit/checkout-counter"
+import { createModel as pendant } from "@/models/shop-kit/pendant-lamp"
+import { createModel as clock } from "@/models/shop-kit/wall-clock"
 
 const factories: Record<string, (k: ReturnType<typeof createShopKit>) => { root: Object3D; dispose(): void }> = {
   "shop-floor": (k) => floor(k, { width: 6, depth: 5 }),
   "modular-shelf": (k) => shelf(k),
   "repair-bench": (k) => bench(k),
   "checkout-counter": (k) => counter(k),
+  "pendant-lamp": (k) => pendant(k),
+  "wall-clock": (k) => clock(k),
 }
 
 type Tri = { a: Vector3; b: Vector3; c: Vector3; mesh: string }
