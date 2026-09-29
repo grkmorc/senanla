@@ -1,0 +1,97 @@
+/**
+ * @shop-kit material source. Semantic slots, reference-counted cache.
+ * Resolution: per-instance override -> kit override -> kit default.
+ */
+import { Material, MeshStandardMaterial, Color } from "three"
+
+export type ShopSlot =
+  | "surface.floor"
+  | "surface.floorTrim"
+  | "surface.wood"
+  | "surface.woodDark"
+  | "hardware.steel"
+  | "hardware.steelDark"
+  | "surface.paint"
+  | "surface.rubber"
+  | "surface.counterTop"
+  | "signal.amber"
+  | "signal.cyan"
+  | "prop.crate"
+  | "prop.goodsA"
+  | "prop.goodsB"
+  | "prop.goodsC"
+
+interface SlotSpec { color: string; roughness: number; metalness: number; emissive?: string; emissiveIntensity?: number }
+
+const DEFAULTS: Record<ShopSlot, SlotSpec> = {
+  "surface.floor":      { color: "#6b5b4b", roughness: 0.85, metalness: 0.0 },
+  "surface.floorTrim":  { color: "#3d342c", roughness: 0.8,  metalness: 0.0 },
+  "surface.wood":       { color: "#a0703f", roughness: 0.7,  metalness: 0.0 },
+  "surface.woodDark":   { color: "#5c3b22", roughness: 0.75, metalness: 0.0 },
+  "hardware.steel":     { color: "#8d949b", roughness: 0.38, metalness: 0.85 },
+  "hardware.steelDark": { color: "#3a3f45", roughness: 0.5,  metalness: 0.7 },
+  "surface.paint":      { color: "#2f6f6a", roughness: 0.55, metalness: 0.1 },
+  "surface.rubber":     { color: "#1e1f22", roughness: 0.95, metalness: 0.0 },
+  "surface.counterTop": { color: "#d9d2c3", roughness: 0.35, metalness: 0.0 },
+  "signal.amber":       { color: "#ffb347", roughness: 0.4,  metalness: 0.0, emissive: "#ff9a1f", emissiveIntensity: 1.2 },
+  "signal.cyan":        { color: "#5fe3ff", roughness: 0.4,  metalness: 0.0, emissive: "#2fc8ff", emissiveIntensity: 1.0 },
+  "prop.crate":         { color: "#b98b52", roughness: 0.8,  metalness: 0.0 },
+  "prop.goodsA":        { color: "#c8553d", roughness: 0.6,  metalness: 0.0 },
+  "prop.goodsB":        { color: "#e3b23c", roughness: 0.6,  metalness: 0.0 },
+  "prop.goodsC":        { color: "#4f7cac", roughness: 0.6,  metalness: 0.0 },
+}
+
+export interface ShopMaterialSource {
+  acquire(slot: ShopSlot): Material
+  release(slot: ShopSlot, material: Material): void
+  setKitOverride(slot: ShopSlot, material: Material | null): void
+  readonly slots: readonly ShopSlot[]
+  dispose(): void
+}
+
+export function createShopMaterialSource(): ShopMaterialSource {
+  const cache = new Map<ShopSlot, { material: Material; refs: number }>()
+  const kitOverrides = new Map<ShopSlot, Material>() // borrowed, never disposed
+
+  const build = (slot: ShopSlot) => {
+    const s = DEFAULTS[slot]
+    const m = new MeshStandardMaterial({
+      color: new Color(s.color),
+      roughness: s.roughness,
+      metalness: s.metalness,
+      emissive: new Color(s.emissive ?? "#000000"),
+      emissiveIntensity: s.emissiveIntensity ?? 0,
+    })
+    m.name = `shop-kit/${slot}`
+    return m
+  }
+
+  return {
+    slots: Object.keys(DEFAULTS) as ShopSlot[],
+    acquire(slot) {
+      const o = kitOverrides.get(slot)
+      if (o) return o
+      let entry = cache.get(slot)
+      if (!entry) cache.set(slot, (entry = { material: build(slot), refs: 0 }))
+      entry.refs++
+      return entry.material
+    },
+    release(slot, material) {
+      const entry = cache.get(slot)
+      // Only cached kit materials are ref-counted; overrides are borrowed.
+      if (!entry || entry.material !== material) return
+      if (--entry.refs <= 0) {
+        entry.material.dispose()
+        cache.delete(slot)
+      }
+    },
+    setKitOverride(slot, material) {
+      if (material) kitOverrides.set(slot, material)
+      else kitOverrides.delete(slot)
+    },
+    dispose() {
+      cache.forEach((e) => e.material.dispose())
+      cache.clear()
+    },
+  }
+}

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>İzometrik Dükkan</title>
+  <style>
+    :root { --bg: #1a1c21; --ink: #ece6da; --muted: #9aa0a8; --accent: #ffb347; --panel: rgba(20, 22, 26, 0.78); }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
+    #view { position: fixed; inset: 0; }
+    #view canvas { display: block; touch-action: none; }
+    .hud { position: fixed; left: 16px; bottom: 16px; background: var(--panel); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 10px 14px; backdrop-filter: blur(6px); max-width: calc(100vw - 64px); }
+    .hud h1 { margin: 0 0 6px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+    .hud ul { margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 12.5px; }
+    .hud b { color: var(--ink); font-weight: 600; }
+    #status { position: fixed; top: 16px; left: 50%; transform: translate(-50%, -8px); opacity: 0; transition: .25s;
+      background: var(--panel); border: 1px solid rgba(255,179,71,0.4); padding: 8px 14px; border-radius: 999px; pointer-events: none; }
+    #status.show { opacity: 1; transform: translate(-50%, 0); }
+  </style>
+</head>
+<body>
+  <div id="view"></div>
+  <div id="status"></div>
+  <div class="hud">
+    <h1>Dükkan</h1>
+    <ul>
+      <li><b>Sol tık</b> zemine: yürü · nesneye: git ve kullan</li>
+      <li><b>Sağ tık / Shift+sürükle</b>: kamerayı kaydır</li>
+      <li><b>Tekerlek</b>: yakınlaştır · <b>Q / E</b>: 90° döndür</li>
+      <li><b>F</b>: karakteri takip et · <b>C</b>: serbest kamera</li>
+    </ul>
+  </div>
+  <script type="module" src="./src/app/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://vibe3d.dev/schema/registry.json",
+  "schemaVersion": 1,
+  "namespace": "@shop-kit",
+  "title": "Shop Kit",
+  "description": "Isometric shop interior: tiled floor, modular shelving, repair bench and checkout counter.",
+  "license": "MIT",
+  "defaultItem": "kit",
+  "compatibility": {
+    "vibe3d": "^1.0.0",
+    "engine": "three",
+    "three": ">=0.185.0",
+    "capabilities": ["webgl"]
+  },
+  "items": [
+    {
+      "name": "core",
+      "type": "vibe3d:lib",
+      "registryDependencies": ["@vibe3d/core"],
+      "dependencies": ["three@>=0.185.0"],
+      "files": [
+        { "path": "src/kits/shop-kit/context.ts", "target": "kits/shop-kit/context.ts" }
+      ]
+    },
+    {
+      "name": "materials",
+      "type": "vibe3d:materials",
+      "files": [
+        { "path": "src/kits/shop-kit/materials.ts", "target": "kits/shop-kit/materials.ts" }
+      ]
+    },
+    {
+      "name": "shop-floor",
+      "type": "vibe3d:model",
+      "title": "Shop Floor",
+      "registryDependencies": ["@shop-kit/core", "@shop-kit/materials"],
+      "files": [{ "path": "src/models/shop-kit/shop-floor.ts", "target": "models/shop-kit/shop-floor.ts" }]
+    },
+    {
+      "name": "modular-shelf",
+      "type": "vibe3d:model",
+      "title": "Modular Shelf",
+      "registryDependencies": ["@shop-kit/core", "@shop-kit/materials"],
+      "files": [{ "path": "src/models/shop-kit/modular-shelf.ts", "target": "models/shop-kit/modular-shelf.ts" }]
+    },
+    {
+      "name": "repair-bench",
+      "type": "vibe3d:model",
+      "title": "Repair Bench",
+      "registryDependencies": ["@shop-kit/core", "@shop-kit/materials"],
+      "files": [{ "path": "src/models/shop-kit/repair-bench.ts", "target": "models/shop-kit/repair-bench.ts" }]
+    },
+    {
+      "name": "checkout-counter",
+      "type": "vibe3d:model",
+      "title": "Checkout Counter",
+      "registryDependencies": ["@shop-kit/core", "@shop-kit/materials"],
+      "files": [{ "path": "src/models/shop-kit/checkout-counter.ts", "target": "models/shop-kit/checkout-counter.ts" }]
+    },
+    {
+      "name": "kit",
+      "type": "vibe3d:kit",
+      "registryDependencies": [
+        "@shop-kit/shop-floor",
+        "@shop-kit/modular-shelf",
+        "@shop-kit/repair-bench",
+        "@shop-kit/checkout-counter"
+      ]
+    }
+  ]
+}
