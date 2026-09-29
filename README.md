@@ -6,6 +6,15 @@ Vibe3D uyumlu küçük bir registry (4 model) ve bunu kullanan tıkla-yürü izo
 
 **Canlı demo:** https://grkmorc.github.io/senanla/
 
+## Oyun
+
+Dükkan her gün 08:00'de açılır, 20:00'de kapanır (bir gün 3 dakika sürer).
+
+- **Satış:** Müşteriler raflardan ürün alıp kasada sıraya girer. Kasaya tıkla, karakterin kasiyer yerine gidip ödemeyi alır.
+- **Stok:** Her alışveriş rafı boşaltır. Raf boşken gelen müşteri eli boş gider ve itibar düşer. Rafa tıklayarak ücret karşılığında doldur.
+- **Tamir:** Turuncu kutulu müşteri tamir işi getirir. Cihazı kasada al, tamir masasında 4 saniye çalış, sonra kasada teslim et.
+- **İtibar:** İyi hizmet itibarı artırır, bekletmek düşürür. İtibar arttıkça müşteriler daha sık gelir.
+
 ## Yapı
 
 ```text
@@ -17,6 +26,8 @@ src/models/shop-kit/modular-shelf.ts     # 1 m bölmeli modüler raf (bays, leve
 src/models/shop-kit/repair-bench.ts      # tamir masası, action: setLamp / toggleLamp
 src/models/shop-kit/checkout-counter.ts  # kasa tezgâhı, action: ring() (çekmece animasyonu)
 src/app/shop-scene.ts                # tüketici sahnesi: renderer, loop, input, etkileşim
+src/app/pawn.ts                      # oyuncu ve müşteri karakterleri (yer tutucu)
+src/game/shop-game.ts                # oyun döngüsü: müşteri YZ, kasa sırası, stok, tamir, ekonomi
 src/app/iso-camera.ts                # gerçek izometrik (35.264°) Orthographic rig
 src/app/nav-grid.ts                  # 8 yönlü A* + string-pull yol düzeltme
 scripts/coplanar-check.ts            # vibe-model kural 9 kontrolü

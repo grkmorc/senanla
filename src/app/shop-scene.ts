@@ -1,14 +1,11 @@
 /**
- * Consumer scene: isometric shop built from @shop-kit models.
- * The app owns renderer, camera, loop, navigation and input (Vibe3D consumer role).
- * The pawn is an app-level placeholder, not a registry model (characters are out
- * of scope for vibe-model).
+ * Consumer scene: isometric shop built from @shop-kit models, plus the shop game loop.
+ * The app owns renderer, camera, loop, navigation, input and UI (Vibe3D consumer role).
  */
 import {
-  WebGLRenderer, Scene, OrthographicCamera, Color, HemisphereLight, DirectionalLight, PointLight,
-  Vector2, Vector3, Raycaster, Plane, Group, Mesh, CapsuleGeometry, MeshStandardMaterial,
-  RingGeometry, MeshBasicMaterial, Box3, Box3Helper, Object3D, ACESFilmicToneMapping,
-  PCFShadowMap, SRGBColorSpace, SphereGeometry, CylinderGeometry, DoubleSide, MathUtils,
+  WebGLRenderer, Scene, Color, HemisphereLight, DirectionalLight, PointLight,
+  Vector2, Vector3, Raycaster, Plane, Mesh, RingGeometry, MeshBasicMaterial,
+  Box3, Box3Helper, Object3D, ACESFilmicToneMapping, PCFShadowMap, SRGBColorSpace,
 } from "three"
 import { createShopKit } from "@/kits/shop-kit/context"
 import { createShopFloor, WALL_T } from "@/models/shop-kit/shop-floor"
@@ -18,6 +15,8 @@ import { createCheckoutCounter } from "@/models/shop-kit/checkout-counter"
 import type { ModelInstance } from "@/lib/vibe3d/model"
 import { NavGrid } from "./nav-grid"
 import { IsoCameraRig } from "./iso-camera"
+import { Pawn, disposePawnAssets } from "./pawn"
+import { ShopGame, type HudState, type ShelfSlot } from "@/game/shop-game"
 
 type AnyModel = ModelInstance<any, any, any>
 
@@ -25,25 +24,32 @@ interface Placed {
   id: string
   label: string
   model: AnyModel
-  /** Socket the pawn walks to before interacting. */
+  /** Socket the player walks to before interacting. */
   socket: string
-  interact?: () => string
+  interact: () => void
+}
+
+export interface ShopUi {
+  say(msg: string): void
+  hud(state: HudState): void
+  /** Container for floating world-space labels. */
+  overlay: HTMLElement
 }
 
 export interface ShopSceneHandle {
   dispose(): void
-  /** Test / automation hook. */
   readonly debug: {
     walkTo(x: number, z: number): boolean
     interact(id: string): boolean
     setView(opts: { yawStep?: number; zoom?: number; focus?: [number, number] }): void
-    pawn: Object3D
+    readonly pawn: Object3D
+    readonly game: ShopGame
+    /** Advance the simulation without rendering (tests). */
+    fastForward(seconds: number, step?: number): void
   }
 }
 
-export function createShopScene(container: HTMLElement, hud?: (msg: string) => void): ShopSceneHandle {
-  const say = hud ?? (() => {})
-
+export function createShopScene(container: HTMLElement, ui: ShopUi): ShopSceneHandle {
   // ---------------------------------------------------------------- renderer
   const renderer = new WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
@@ -56,9 +62,7 @@ export function createShopScene(container: HTMLElement, hud?: (msg: string) => v
 
   const scene = new Scene()
   scene.background = new Color("#1a1c21")
-
-  const hemi = new HemisphereLight("#fff4e6", "#3a3f4a", 1.1)
-  scene.add(hemi)
+  scene.add(new HemisphereLight("#fff4e6", "#3a3f4a", 1.1))
   const sun = new DirectionalLight("#fff1dc", 2.2)
   sun.position.set(-5, 11, 9)
   sun.castShadow = true
@@ -74,7 +78,7 @@ export function createShopScene(container: HTMLElement, hud?: (msg: string) => v
   const floor = createShopFloor(kit, floorCfg)
   scene.add(floor.root)
 
-  const place = (m: AnyModel, x: number, z: number, rotY = 0) => {
+  const place = <M extends AnyModel>(m: M, x: number, z: number, rotY = 0): M => {
     m.root.position.set(x, 0, z)
     m.root.rotation.y = rotY
     scene.add(m.root)
@@ -86,13 +90,14 @@ export function createShopScene(container: HTMLElement, hud?: (msg: string) => v
   const hd = floorCfg.depth / 2
   const backZ = -hd + WALL_T + 0.25 + 0.02
   const shelves = [
-    place(createModularShelf(kit, { bays: 2 }), -3.1, backZ),
-    place(createModularShelf(kit, { bays: 2, levels: 5 }), -0.4, backZ),
-    place(createModularShelf(kit, { bays: 2, height: 1.4, levels: 3, backPanel: false, depth: 0.6 }), -1.75, -1.4),
+    place(createModularShelf(kit, { bays: 2, stock: 0.9 }), -3.1, backZ),
+    place(createModularShelf(kit, { bays: 2, levels: 5, stock: 0.7 }), -0.4, backZ),
+    place(createModularShelf(kit, { bays: 2, height: 1.4, levels: 3, backPanel: false, depth: 0.6, stock: 0.8 }), -1.75, -1.4),
     place(createModularShelf(kit, { bays: 3, stock: 0.6 }), -hw + WALL_T + 0.27, 0.9, Math.PI / 2),
   ]
   const bench = place(createRepairBench(kit, { vise: "right" }), 3.4, -hd + WALL_T + 0.375 + 0.03)
   const counter = place(createCheckoutCounter(kit, { registerSide: "right" }), 2.6, 2.1)
+  const models: AnyModel[] = [floor, ...shelves, bench, counter]
 
   // Consumer-owned light parented to the lamp's stable anchor (survives rebuilds).
   const lampLight = new PointLight("#ffb45a", 3, 3.5, 1.6)
@@ -100,59 +105,92 @@ export function createShopScene(container: HTMLElement, hud?: (msg: string) => v
   lampLight.userData.excludeFromExport = true
   lampLight.position.set(-0.4, 1.15, -0.075)
   bench.parts.lamp.anchor.add(lampLight)
+  bench.actions.setLamp(false)
 
-  const placed: Placed[] = [
-    ...shelves.map((m, i) => ({ id: `shelf-${i + 1}`, label: `Raf ${i + 1}`, model: m, socket: "front" })),
-    {
-      id: "bench", label: "Tamir masası", model: bench, socket: "work",
-      interact: () => `Lamba ${bench.actions.toggleLamp() ? "açık" : "kapalı"}`,
-    },
-    {
-      id: "counter", label: "Kasa", model: counter, socket: "cashier",
-      interact: () => { counter.actions.ring(); return "Kasa açıldı" },
-    },
-  ]
+  const socketWorld = (m: AnyModel, name: string) => m.sockets[name].anchor.getWorldPosition(new Vector3())
 
   // ---------------------------------------------------------------- navigation
   const nav = new NavGrid(-hw, -hd, hw, hd, 0.2)
   const AGENT_R = 0.24
-  // Walls from the floor definition.
   nav.blockRect(-hw, -hd, hw, -hd + WALL_T, AGENT_R)
   nav.blockRect(-hw, -hd, -hw + WALL_T, hd, AGENT_R)
-  nav.blockBorder(AGENT_R) // keep the agent off the slab edge
+  nav.blockBorder(AGENT_R)
   const tmpBox = new Box3()
-  for (const p of placed) {
-    tmpBox.setFromObject(p.model.root)
+  for (const m of models.slice(1)) {
+    tmpBox.setFromObject(m.root)
     nav.blockRect(tmpBox.min.x, tmpBox.min.z, tmpBox.max.x, tmpBox.max.z, AGENT_R)
   }
 
-  // ---------------------------------------------------------------- pawn (placeholder)
-  const pawn = new Group()
-  pawn.name = "app/pawn"
-  pawn.userData.excludeFromExport = true
-  const pawnMat = new MeshStandardMaterial({ color: "#e8e1d4", roughness: 0.5 })
-  const apronMat = new MeshStandardMaterial({ color: "#2f6f6a", roughness: 0.7 })
-  const body = new Mesh(new CapsuleGeometry(0.2, 0.7, 6, 16), pawnMat)
-  body.position.y = 0.55
-  const apron = new Mesh(new CylinderGeometry(0.205, 0.215, 0.5, 16, 1, true, -Math.PI / 2.2, Math.PI / 1.1), apronMat)
-  apron.material.side = DoubleSide
-  apron.position.y = 0.5
-  const head = new Mesh(new SphereGeometry(0.16, 20, 14), pawnMat)
-  head.position.y = 1.18
-  const nose = new Mesh(new SphereGeometry(0.045, 10, 8), apronMat)
-  nose.position.set(0, 1.2, 0.15)
-  for (const m of [body, apron, head, nose]) { m.castShadow = true; pawn.add(m) }
-  const spawn = floor.sockets.entrance.anchor.getWorldPosition(new Vector3())
-  pawn.position.copy(spawn)
-  pawn.rotation.y = Math.PI
-  scene.add(pawn)
+  // ---------------------------------------------------------------- player
+  const player = new Pawn({ body: "#e8e1d4", apron: "#2f6f6a" })
+  player.root.name = "app/player"
+  const entrance = socketWorld(floor, "entrance")
+  player.root.position.copy(socketWorld(counter, "cashier"))
+  scene.add(player.root)
 
-  // Target marker.
+  // ---------------------------------------------------------------- floating labels
+  const labels: { el: HTMLElement; at: Vector3; t: number }[] = []
+  const popup = (at: Vector3, text: string, tone: "gain" | "loss" | "info") => {
+    const el = document.createElement("div")
+    el.className = `pop pop-${tone}`
+    el.textContent = text
+    ui.overlay.appendChild(el)
+    labels.push({ el, at: at.clone().setY(1.7), t: 0 })
+  }
+
+  // ---------------------------------------------------------------- game
+  const shelfSlots: ShelfSlot[] = shelves.map((m, i) => ({
+    id: `shelf-${i + 1}`,
+    label: `Raf ${i + 1}`,
+    model: m,
+    spot: socketWorld(m, "front"),
+    price: [8, 12, 6, 10][i],
+  }))
+  const game = new ShopGame({
+    scene,
+    nav,
+    shelves: shelfSlots,
+    queueHead: socketWorld(counter, "customer"),
+    queueStep: new Vector3(0.55, 0, 0.42),
+    waitingSpot: new Vector3(-1.4, 0, 3.6),
+    entrance,
+    say: ui.say,
+    popup,
+    onLamp: (on) => bench.actions.setLamp(on),
+  })
+
+  const placed: Placed[] = [
+    ...shelfSlots.map((s) => ({
+      id: s.id, label: s.label, model: s.model as AnyModel, socket: "front",
+      interact: () => game.restock(s, player.root.position),
+    })),
+    {
+      id: "bench", label: "Tamir masası", model: bench, socket: "work",
+      interact: () => {
+        if (!game.useBench()) {
+          const on = bench.actions.toggleLamp()
+          if (game.carry === null) ui.say(`Lamba ${on ? "açık" : "kapalı"}`)
+        }
+      },
+    },
+    {
+      id: "counter", label: "Kasa", model: counter, socket: "cashier",
+      interact: () => { counter.actions.ring(); game.serveAtCounter(player.root.position) },
+    },
+  ]
+
+  // ---------------------------------------------------------------- markers
   const marker = new Mesh(new RingGeometry(0.16, 0.22, 32), new MeshBasicMaterial({ color: "#5fe3ff", transparent: true, opacity: 0 }))
   marker.rotation.x = -Math.PI / 2
   marker.position.y = 0.03
   marker.userData.excludeFromExport = true
   scene.add(marker)
+  let markerT = 0
+  const flashMarker = (x: number, z: number, color: string) => {
+    marker.position.set(x, 0.03, z)
+    ;(marker.material as MeshBasicMaterial).color.set(color)
+    markerT = 1
+  }
   const hoverBox = new Box3Helper(new Box3(), new Color("#ffb347"))
   hoverBox.visible = false
   hoverBox.userData.excludeFromExport = true
@@ -160,45 +198,36 @@ export function createShopScene(container: HTMLElement, hud?: (msg: string) => v
 
   // ---------------------------------------------------------------- camera
   const rig = new IsoCameraRig(container.clientWidth / container.clientHeight)
-  rig.focus.copy(pawn.position)
+  rig.focus.copy(player.root.position)
   rig.snap()
 
   // ---------------------------------------------------------------- movement
-  let path: Vector3[] = []
-  let pending: Placed | null = null
-  const SPEED = 2.6
-
-  const walkTo = (x: number, z: number, then: Placed | null = null): boolean => {
-    const route = nav.findPath(pawn.position.x, pawn.position.z, x, z)
-    if (!route) { say("Oraya gidilemiyor"); flashMarker(x, z, "#ff6b5f"); return false }
-    path = route.map(([px, pz]) => new Vector3(px, 0, pz))
-    pending = then
-    const end = path[path.length - 1] ?? pawn.position
+  const walkTo = (x: number, z: number, then: (() => void) | null = null): boolean => {
+    game.leaveBench()
+    const ok = player.goTo(nav, x, z, then)
+    if (!ok) { ui.say("Oraya gidilemiyor"); flashMarker(x, z, "#ff6b5f"); return false }
+    const end = player.destination ?? player.root.position
     flashMarker(end.x, end.z, "#5fe3ff")
     rig.follow = true
     return true
   }
 
-  let markerT = 0
-  const flashMarker = (x: number, z: number, color: string) => {
-    marker.position.set(x, 0.03, z)
-    ;(marker.material as MeshBasicMaterial).color.set(color)
-    markerT = 1
-  }
-
   const interactWith = (p: Placed): boolean => {
-    const s = p.model.sockets[p.socket].anchor.getWorldPosition(new Vector3())
-    say(`${p.label} → yürünüyor`)
-    return walkTo(s.x, s.z, p)
+    const s = socketWorld(p.model, p.socket)
+    return walkTo(s.x, s.z, () => {
+      player.faceTowards(p.model.root.getWorldPosition(new Vector3()))
+      p.interact()
+    })
   }
 
   // ---------------------------------------------------------------- input
   const raycaster = new Raycaster()
   const ndc = new Vector2()
   const groundPlane = new Plane(new Vector3(0, 1, 0), 0)
-  const setNdc = (e: PointerEvent | MouseEvent) => {
-    const r = renderer.domElement.getBoundingClientRect()
-    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
+  const el = renderer.domElement
+  const setRay = (x: number, y: number) => {
+    const r = el.getBoundingClientRect()
+    ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1)
     raycaster.setFromCamera(ndc, rig.camera)
   }
   const pickPlaced = (): Placed | null => {
@@ -210,18 +239,39 @@ export function createShopScene(container: HTMLElement, hud?: (msg: string) => v
     return best?.p ?? null
   }
 
-  let drag: { x: number; y: number; button: number; moved: boolean } | null = null
-  const el = renderer.domElement
+  // Pointer tracking supports mouse (left click / right-drag pan) and touch (tap, 2-finger pan + pinch).
+  const pointers = new Map<number, { x: number; y: number }>()
+  let drag: { x: number; y: number; button: number; moved: boolean; multi: boolean } | null = null
+  let pinch: { dist: number; mid: { x: number; y: number } } | null = null
+  const twoFinger = () => {
+    const [a, b] = [...pointers.values()]
+    return { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }
+  }
+
   el.addEventListener("contextmenu", (e) => e.preventDefault())
   el.addEventListener("pointerdown", (e) => {
     el.setPointerCapture(e.pointerId)
-    drag = { x: e.clientX, y: e.clientY, button: e.button, moved: false }
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointers.size === 2) {
+      pinch = twoFinger()
+      if (drag) drag.multi = true
+    } else {
+      drag = { x: e.clientX, y: e.clientY, button: e.button, moved: false, multi: false }
+    }
   })
   el.addEventListener("pointermove", (e) => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pinch && pointers.size === 2) {
+      const now = twoFinger()
+      rig.panPixels(now.mid.x - pinch.mid.x, now.mid.y - pinch.mid.y, el.clientHeight)
+      if (now.dist > 0 && pinch.dist > 0) rig.zoomBy(pinch.dist / now.dist)
+      pinch = now
+      return
+    }
     if (drag) {
       const dx = e.clientX - drag.x
       const dy = e.clientY - drag.y
-      if (Math.hypot(dx, dy) > 4) drag.moved = true
+      if (Math.hypot(dx, dy) > 6) drag.moved = true
       if (drag.moved && (drag.button === 2 || drag.button === 1 || (drag.button === 0 && e.shiftKey))) {
         rig.panPixels(dx, dy, el.clientHeight)
         drag.x = e.clientX
@@ -229,27 +279,28 @@ export function createShopScene(container: HTMLElement, hud?: (msg: string) => v
       }
       return
     }
-    setNdc(e)
+    if (e.pointerType !== "mouse") return
+    setRay(e.clientX, e.clientY)
     const p = pickPlaced()
-    if (p) {
-      ;(hoverBox.box as Box3).setFromObject(p.model.root)
-      hoverBox.visible = true
-      el.style.cursor = "pointer"
-    } else {
-      hoverBox.visible = false
-      el.style.cursor = "crosshair"
-    }
+    hoverBox.visible = !!p
+    if (p) hoverBox.box.setFromObject(p.model.root)
+    el.style.cursor = p ? "pointer" : "crosshair"
   })
-  el.addEventListener("pointerup", (e) => {
+  const endPointer = (e: PointerEvent) => {
+    pointers.delete(e.pointerId)
+    if (pointers.size < 2) pinch = null
     const d = drag
+    if (pointers.size > 0) return
     drag = null
-    if (!d || d.moved || d.button !== 0) return
-    setNdc(e)
+    if (!d || d.moved || d.multi || d.button !== 0 || e.type === "pointercancel") return
+    setRay(e.clientX, e.clientY)
     const p = pickPlaced()
     if (p) { interactWith(p); return }
     const hit = raycaster.ray.intersectPlane(groundPlane, new Vector3())
     if (hit) walkTo(hit.x, hit.z)
-  })
+  }
+  el.addEventListener("pointerup", endPointer)
+  el.addEventListener("pointercancel", endPointer)
   el.addEventListener("wheel", (e) => {
     e.preventDefault()
     rig.zoomBy(Math.exp(e.deltaY * 0.0012))
@@ -258,8 +309,8 @@ export function createShopScene(container: HTMLElement, hud?: (msg: string) => v
     const k = e.key.toLowerCase()
     if (k === "q") rig.rotateStep(-1)
     else if (k === "e") rig.rotateStep(1)
-    else if (k === "f" || k === " ") { rig.follow = true; say("Kamera karakteri takip ediyor") }
-    else if (k === "c") { rig.follow = !rig.follow; say(rig.follow ? "Takip açık" : "Serbest kamera") }
+    else if (k === "f" || k === " ") { rig.follow = true; ui.say("Kamera karakteri takip ediyor") }
+    else if (k === "c") { rig.follow = !rig.follow; ui.say(rig.follow ? "Takip açık" : "Serbest kamera") }
   }
   addEventListener("keydown", onKey)
 
@@ -276,40 +327,19 @@ export function createShopScene(container: HTMLElement, hud?: (msg: string) => v
   // ---------------------------------------------------------------- loop
   let last = performance.now()
   let raf = 0
-  const models = [floor, ...shelves, bench, counter]
+  let hudT = 0
+  const proj = new Vector3()
+  /** Everything that advances game time; rendering and UI stay in tick(). */
+  const simulate = (dt: number) => {
+    player.update(dt)
+    game.update(dt, player.moving)
+    player.setCarry(game.carry === "broken" ? "#e0822c" : game.carry === "fixed" ? "#6fcf7c" : null)
+    for (const m of models) m.update(dt)
+  }
   const tick = (now: number) => {
     const dt = Math.min(0.05, (now - last) / 1000)
     last = now
-
-    // Walk along the path.
-    if (path.length) {
-      const next = path[0]
-      const to = new Vector3(next.x - pawn.position.x, 0, next.z - pawn.position.z)
-      const dist = to.length()
-      const step = SPEED * dt
-      if (dist <= step) {
-        pawn.position.x = next.x
-        pawn.position.z = next.z
-        path.shift()
-      } else {
-        to.multiplyScalar(step / dist)
-        pawn.position.add(to)
-      }
-      const yaw = Math.atan2(to.x, to.z)
-      pawn.rotation.y = lerpAngle(pawn.rotation.y, yaw, 1 - Math.exp(-dt * 14))
-      pawn.position.y = Math.abs(Math.sin(now * 0.014)) * 0.04
-      if (!path.length) {
-        pawn.position.y = 0
-        if (pending) {
-          const target = pending
-          pending = null
-          // Face the model we came to use.
-          const c = target.model.root.getWorldPosition(new Vector3())
-          pawn.rotation.y = Math.atan2(c.x - pawn.position.x, c.z - pawn.position.z)
-          say(target.interact ? target.interact() : `${target.label} incelendi`)
-        }
-      }
-    }
+    simulate(dt)
 
     if (markerT > 0) {
       markerT = Math.max(0, markerT - dt * 1.2)
@@ -317,25 +347,40 @@ export function createShopScene(container: HTMLElement, hud?: (msg: string) => v
       marker.scale.setScalar(1 + (1 - markerT) * 0.6)
     }
 
-    for (const m of models) m.update(dt)
-    if (rig.follow) rig.focus.lerp(new Vector3(pawn.position.x, 0, pawn.position.z), 1 - Math.exp(-dt * 5))
+    if (rig.follow) rig.focus.lerp(new Vector3(player.root.position.x, 0, player.root.position.z), 1 - Math.exp(-dt * 5))
     rig.update(dt)
     renderer.render(scene, rig.camera)
+
+    // Floating labels rise and fade over 1.4 s.
+    for (let i = labels.length - 1; i >= 0; i--) {
+      const l = labels[i]
+      l.t += dt / 1.4
+      if (l.t >= 1) { l.el.remove(); labels.splice(i, 1); continue }
+      proj.copy(l.at).setY(l.at.y + l.t * 0.8).project(rig.camera)
+      l.el.style.transform = `translate(${(proj.x * 0.5 + 0.5) * el.clientWidth}px, ${(-proj.y * 0.5 + 0.5) * el.clientHeight}px) translate(-50%, -50%)`
+      l.el.style.opacity = String(1 - l.t * l.t)
+    }
+
+    hudT -= dt
+    if (hudT <= 0) { ui.hud(game.hud()); hudT = 0.1 }
     raf = requestAnimationFrame(tick)
   }
   raf = requestAnimationFrame(tick)
-  say("Sol tık ile yürü; raf, tezgâh veya kasaya tıkla")
+  ui.say("Dükkan açıldı. Müşterileri kasada karşıla")
 
   return {
     dispose() {
       cancelAnimationFrame(raf)
       ro.disconnect()
       removeEventListener("keydown", onKey)
+      game.dispose()
+      player.dispose()
+      disposePawnAssets()
+      labels.forEach((l) => l.el.remove())
       for (const m of models) m.dispose()
       kit.dispose()
-      pawn.traverse((o) => { if ((o as Mesh).isMesh) (o as Mesh).geometry.dispose() })
-      pawnMat.dispose(); apronMat.dispose()
-      marker.geometry.dispose(); (marker.material as MeshBasicMaterial).dispose()
+      marker.geometry.dispose()
+      ;(marker.material as MeshBasicMaterial).dispose()
       hoverBox.dispose()
       renderer.dispose()
       el.remove()
@@ -349,12 +394,11 @@ export function createShopScene(container: HTMLElement, hud?: (msg: string) => v
         if (focus) { rig.follow = false; rig.focus.set(focus[0], 0, focus[1]) }
         rig.snap()
       },
-      pawn,
+      get pawn() { return player.root },
+      game,
+      fastForward(seconds, step = 1 / 30) {
+        for (let t = 0; t < seconds; t += step) simulate(step)
+      },
     },
   }
-}
-
-function lerpAngle(a: number, b: number, t: number) {
-  const d = MathUtils.euclideanModulo(b - a + Math.PI, Math.PI * 2) - Math.PI
-  return a + d * t
 }
