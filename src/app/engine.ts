@@ -30,7 +30,10 @@ export interface HudState {
   clock: string
   dayProgress: number
   salesQueue: number
+  salesLow: number
   repairQueue: number
+  repairWaiting: number
+  salvageLeft: number
   carry: Carry
   work: { text: string; progress: number } | null
   revenueToday: number
@@ -103,6 +106,9 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
     scrap: createScrapLevel(kit, economy, go),
   }
   let active: Level = levels.outdoor
+  const sales = levels.sales as ReturnType<typeof createSalesLevel>
+  const repair = levels.repair as ReturnType<typeof createRepairLevel>
+  const scrap = levels.scrap as ReturnType<typeof createScrapLevel>
 
   // ---------------------------------------------------------------- player
   const player = new Pawn({ skin: "#e8c4a0", shirt: "#ece6da", pants: "#3a3f4a", hair: "#2a1d16", apron: "#2f6f6a" })
@@ -130,6 +136,7 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
       const n = document.createElement("div")
       n.className = "sign"
       n.textContent = l.text
+      if (l.color) n.style.setProperty("--dot", l.color)
       n.hidden = true
       ui.overlay.appendChild(n)
       return n
@@ -193,7 +200,7 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
   // ---------------------------------------------------------------- movement
   const walkTo = (x: number, z: number, then: (() => void) | null = null): boolean => {
     const ok = player.goTo(active.nav, x, z, then)
-    if (!ok) { ui.say("Oraya gidilemiyor"); flashMarker(x, z, "#ff6b5f"); return false }
+    if (!ok) { ui.say("Oraya yol yok"); flashMarker(x, z, "#ff6b5f"); return false }
     const end = player.destination ?? player.root.position
     flashMarker(end.x, end.z, "#5fe3ff")
     rig.follow = true
@@ -291,6 +298,7 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
   }
   const onWheel = (e: WheelEvent) => { e.preventDefault(); rig.zoomBy(Math.exp(e.deltaY * 0.0012)) }
   const onKey = (e: KeyboardEvent) => {
+    if (document.querySelector("dialog[open]")) return
     const k = e.key.toLowerCase()
     if (k === "q") rig.rotateStep(-1)
     else if (k === "e") rig.rotateStep(1)
@@ -407,8 +415,11 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
         day: economy.day,
         clock: economy.clock(),
         dayProgress: economy.dayProgress,
-        salesQueue: (levels.sales as ReturnType<typeof createSalesLevel>).floor.queueLength,
-        repairQueue: (levels.repair as ReturnType<typeof createRepairLevel>).desk.queueLength,
+        salesQueue: sales.floor.queueLength,
+        salesLow: sales.floor.lowShelves,
+        repairQueue: repair.desk.queueLength,
+        repairWaiting: repair.desk.waiting,
+        salvageLeft: scrap.yard.salvageLeft,
         carry: economy.carry,
         work: active.work(),
         revenueToday: economy.revenueToday,
@@ -419,7 +430,7 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
 
   enterLevel(levels.outdoor, null)
   raf = requestAnimationFrame(tick)
-  ui.say("Bir dükkana tıkla, içi açılsın")
+  ui.say("Bir dükkana tıkla, içi açılsın · soldaki kartlar sıraları gösterir")
 
   return {
     exit: () => { if (active.id !== "outdoor") switchTo("outdoor") },

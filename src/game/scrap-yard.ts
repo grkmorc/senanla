@@ -31,9 +31,11 @@ export class ScrapYard {
 
   get workProgress(): number | null { return this.active ? this.progress : null }
   get partPrice() { return PART_PRICE }
+  /** Parts still recoverable from all piles. */
+  get salvageLeft() { return this.piles.reduce((n, p) => n + p.left, 0) }
 
   strip(pile: PileSlot) {
-    if (pile.left <= 0) { this.eco.notify.say("Bu yığında işe yarar parça kalmadı"); return }
+    if (pile.left <= 0) { this.eco.notify.say("Bu yığında parça kalmadı"); return }
     this.active = pile
     this.progress = 0
     this.eco.notify.say("Hurda sökülüyor…")
@@ -42,7 +44,7 @@ export class ScrapYard {
   buyPart(at: Vector3) {
     if (!this.eco.spend(PART_PRICE, at, "yedek parça", "scrap")) return
     this.eco.parts++
-    this.eco.notify.say(`Parça alındı (${this.eco.parts} parça)`)
+    this.eco.notify.say(`Parça alındı · elinde ${this.eco.parts}`)
   }
 
   update(dt: number, playerMoving: boolean) {
@@ -58,7 +60,7 @@ export class ScrapYard {
           this.syncPile(p)
           this.eco.parts++
           this.eco.notify.popup(p.spot, "+1 parça", "info", "scrap")
-          this.eco.notify.say(`Parça çıkarıldı (${this.eco.parts} parça)`)
+          this.eco.notify.say(`Parça çıkarıldı · elinde ${this.eco.parts}`)
         }
       }
     }

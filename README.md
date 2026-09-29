@@ -9,7 +9,7 @@ Vibe3D uyumlu küçük bir registry (4 model) ve bunu kullanan tıkla-yürü izo
 
 ## Oyun
 
-Oyun canlı bir şehir sokağında başlar: arabalar trafik ışıklı kavşaktan geçer, kırmızıda durur, yaya geçidinde yayaya yol verir; yayalar kaldırımlarda dolaşır. Sokakta karakter yoktur. Bizim üç dükkandan birine tıkla, içi açılsın. HUD'daki **Sokak / Mağaza / Tamirhane / Hurdalık** butonlarıyla her yerden anında geçebilirsin; **Esc** sokağa döner. Dükkanların içinde karakterin tıkladığın yere yürür.
+Oyun canlı bir şehir sokağında başlar: arabalar trafik ışıklı kavşaktan geçer, kırmızıda durur, yaya geçidinde yayaya yol verir; yayalar kaldırımlarda dolaşır. Sokakta karakter yoktur. Bizim üç dükkandan birine tıkla, içi açılsın. Üst çubuktaki **Sokak / Mağaza / Tamirhane / Hurdalık** sekmeleri ya da soldaki dükkan kartları ile her yerden anında geçebilirsin; **Esc** sokağa döner. Kartlar her dükkanın durumunu (sıra, azalan raf, elindeki parça) gösterir ve ilgi bekleyen dükkan sarı/kırmızı yanar. Dükkanların içinde karakterin tıkladığın yere yürür.
 
 | Dükkan | Ne yapılır |
 | --- | --- |

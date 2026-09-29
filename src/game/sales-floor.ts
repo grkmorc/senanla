@@ -36,16 +36,19 @@ export class SalesFloor {
   }
 
   get queueLength() { return this.crowd.queue.length }
+  /** Shelves below a third full. */
+  get lowShelves() { return this.shelves.filter((s) => s.model.getConfig().stock < 0.34).length }
+  get customers() { return this.crowd.members.length }
 
   serve(playerPos: Vector3) {
     const head = this.crowd.head()
     if (!head) {
-      this.eco.notify.say(this.crowd.queue.length ? "Müşteri kasaya geliyor" : "Kasada bekleyen yok")
+      this.eco.notify.say(this.crowd.queue.length ? "Müşteri kasaya geliyor" : "Kasada bekleyen müşteri yok")
       return
     }
     this.eco.earn(head.bill, playerPos, "sales")
     this.eco.bumpRep(0.08)
-    this.eco.notify.say(`Satış: ${head.basket} ürün`)
+    this.eco.notify.say(`Satış tamam · ${head.basket} ürün`)
     head.pawn.setCarry("#e8dcc4")
     this.crowd.leave(head)
   }
@@ -106,7 +109,7 @@ export class SalesFloor {
   }
 
   private emptyHanded(c: Buyer) {
-    this.eco.notify.popup(c.pawn.root.position, "Raflar boş!", "loss", "sales")
+    this.eco.notify.popup(c.pawn.root.position, "Raflar boş", "loss", "sales")
     this.eco.bumpRep(-0.2)
     this.crowd.leave(c)
   }

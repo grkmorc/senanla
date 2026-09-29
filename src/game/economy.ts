@@ -39,7 +39,7 @@ export class Economy {
   update(dt: number) {
     this.time += dt
     if (this.time >= DAY_SECONDS) {
-      this.notify.say(`${this.day}. gün bitti: ₺${this.revenueToday} kazanç, ${this.servedToday} müşteri`)
+      this.notify.say(`${this.day}. gün kapandı · ₺${this.revenueToday} kazanç, ${this.servedToday} müşteri`)
       this.day++
       this.time = 0
       this.servedToday = 0
@@ -58,7 +58,7 @@ export class Economy {
   /** Returns false (and explains why) when the player can't afford it. */
   spend(amount: number, at: Vector3, what: string, where: string): boolean {
     if (this.money < amount) {
-      this.notify.say(`Yetersiz para: ${what} için ₺${amount} gerekli`)
+      this.notify.say(`Para yetmiyor · ${what} için ₺${amount} lazım`)
       return false
     }
     this.money -= amount

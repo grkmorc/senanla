@@ -42,12 +42,12 @@ export function createSalesLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) =
   let playerPos = new Vector3()
   const interactables: Interactable[] = [
     ...slots.map((s) => ({
-      id: s.id, label: `${s.label} (doldur)`, pick: s.model.root,
+      id: s.id, label: `${s.label} · doldur`, pick: s.model.root,
       spot: () => s.spot, face: () => s.model.root.position,
       interact: () => sales.restock(s, playerPos),
     })),
     {
-      id: "counter", label: "Kasa", pick: counter.root,
+      id: "counter", label: "Kasa · ödeme al", pick: counter.root,
       spot: () => socketWorld(counter, "cashier"), face: () => counter.root.position,
       interact: () => { counter.actions.ring(); sales.serve(playerPos) },
     },

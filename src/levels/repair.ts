@@ -54,25 +54,25 @@ export function createRepairLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) 
   let playerPos = new Vector3()
   const interactables: Interactable[] = [
     ...benches.map((b, i) => ({
-      id: `bench-${i + 1}`, label: "Tamir masası", pick: b.root,
+      id: `bench-${i + 1}`, label: "Tamir masası · onar", pick: b.root,
       spot: () => socketWorld(b, "work"), face: () => b.root.position,
       interact: () => {
         activeBench = i
         if (!repair.useBench()) {
-          if (eco.carry === "fixed") eco.notify.say("Cihaz hazır. Masada müşteriye teslim et")
-          else if (eco.carry === null) eco.notify.say("Önce resepsiyondan arızalı cihaz al")
+          if (eco.carry === "fixed") eco.notify.say("Cihaz hazır · resepsiyonda teslim et")
+          else if (eco.carry === null) eco.notify.say("Önce resepsiyondan bir cihaz al")
         }
       },
     })),
     {
-      id: "desk", label: "Resepsiyon", pick: desk.root,
+      id: "desk", label: "Resepsiyon · cihaz al, teslim et", pick: desk.root,
       spot: () => socketWorld(desk, "cashier"), face: () => desk.root.position,
       interact: () => repair.serve(playerPos),
     },
     {
       id: "rack", label: "Parça rafı", pick: rack.root,
       spot: () => socketWorld(rack, "front"), face: () => rack.root.position,
-      interact: () => eco.notify.say(`Stokta ${eco.parts} yedek parça var`),
+      interact: () => eco.notify.say(`Rafta ${eco.parts} yedek parça var`),
     },
     room.exit,
   ]

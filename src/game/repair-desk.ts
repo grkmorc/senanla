@@ -35,6 +35,8 @@ export class RepairDesk {
   }
 
   get queueLength() { return this.crowd.queue.length }
+  /** Clients sitting while their device is in the workshop. */
+  get waiting() { return this.crowd.members.filter((c) => c.state === "waiting" || c.state === "toSeat").length }
   get repairProgress(): number | null { return this.eco.carry === "broken" && this.progress > 0 ? this.progress : null }
 
   /** Player at the reception desk. */
@@ -45,7 +47,7 @@ export class RepairDesk {
       this.eco.carry = null
       this.eco.earn(REPAIR_FEE, playerPos, "repair")
       this.eco.bumpRep(0.3)
-      this.eco.notify.say("Cihaz teslim edildi")
+      this.eco.notify.say("Cihaz teslim edildi · müşteri memnun")
       c.pawn.setCarry("#6fcf7c")
       this.crowd.leave(c)
       return
@@ -53,7 +55,7 @@ export class RepairDesk {
     if (this.eco.carry === "broken") { this.eco.notify.say("Önce elindeki cihazı onar"); return }
     const head = this.crowd.head()
     if (!head) {
-      this.eco.notify.say(this.crowd.queue.length ? "Müşteri masaya geliyor" : "Tamir bekleyen yok")
+      this.eco.notify.say(this.crowd.queue.length ? "Müşteri masaya geliyor" : "Tamir bekleyen müşteri yok")
       return
     }
     this.crowd.dequeue(head)
@@ -67,14 +69,14 @@ export class RepairDesk {
       head.state = "waiting"
       head.pawn.faceTowards(this.crowd.d.queueHead)
     })
-    this.eco.notify.say(this.eco.parts > 0 ? "Cihazı aldın. Tamir masasına götür" : "Cihazı aldın ama parçan yok: hurdalıktan getir")
+    this.eco.notify.say(this.eco.parts > 0 ? "Cihazı aldın · tamir masasına götür" : "Cihazı aldın · parçan yok, önce hurdalığa uğra")
   }
 
   /** Player at a bench. Returns true when work started. */
   useBench(): boolean {
     if (this.eco.carry !== "broken" || !this.job) return false
     if (this.progress === 0) {
-      if (this.eco.parts <= 0) { this.eco.notify.say("Yedek parça yok! Hurdalıktan parça getir"); return false }
+      if (this.eco.parts <= 0) { this.eco.notify.say("Yedek parça yok · önce hurdalıktan getir"); return false }
       this.eco.parts--
     }
     this.benchActive = true
@@ -102,7 +104,7 @@ export class RepairDesk {
           this.benchActive = false
           this.progress = 0
           this.onLamp(false)
-          this.eco.notify.say("Tamir bitti. Masada müşteriye teslim et")
+          this.eco.notify.say("Tamir bitti · resepsiyonda teslim et")
         }
       }
     }

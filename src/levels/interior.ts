@@ -78,7 +78,7 @@ export function buildInterior(o: InteriorOptions): Interior {
 
   const exit: Interactable = {
     id: "exit",
-    label: "Dışarı çık",
+    label: "Sokağa çık",
     pick: floor.parts.mat.anchor,
     spot: () => entrance.clone().setZ(hd - 0.35),
     face: () => entrance.clone().setZ(hd + 2),

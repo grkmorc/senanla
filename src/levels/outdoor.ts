@@ -214,13 +214,14 @@ export function createOutdoorLevel(kit: ShopKit, eco: Economy, go: (to: LevelId)
   const shopHint: Record<ShopId, string> = { sales: "Mağaza", repair: "Tamirhane", scrap: "Hurdalık" }
   const interactables: Interactable[] = shops.map(({ f, model }) => ({
     id: f.id!,
-    label: `${shopHint[f.id!]}: içeri gir`,
+    label: `${shopHint[f.id!]} · içeri gir`,
     pick: model.root,
     spot: () => socketWorld(model, "door"),
     face: () => model.root.position,
     interact: () => go(f.id!),
   }))
-  const labels: WorldLabel[] = shops.map(({ f, model }) => ({ text: f.name!, at: socketWorld(model, "sign") }))
+  const plate: Record<ShopId, string> = { sales: "#3fb3a3", repair: "#f0a53a", scrap: "#e0634e" }
+  const labels: WorldLabel[] = shops.map(({ f, model }) => ({ text: f.name!, at: socketWorld(model, "sign"), color: plate[f.id!] }))
 
   const focusFor = (id: LevelId | null) => {
     const b = shops.find((s) => s.f.id === id)

@@ -55,12 +55,12 @@ export function createScrapLevel(kit: ShopKit, eco: Economy, go: (to: LevelId) =
   let playerPos = new Vector3()
   const interactables: Interactable[] = [
     ...piles.map((p) => ({
-      id: p.id, label: "Hurda yığını (sök)", pick: p.model.root,
+      id: p.id, label: "Hurda yığını · sök", pick: p.model.root,
       spot: () => p.spot, face: () => p.model.root.position,
       interact: () => yard.strip(p),
     })),
     {
-      id: "dealer", label: `Parça satın al (₺${yard.partPrice})`, pick: dealer.root,
+      id: "dealer", label: `Parça tezgâhı · ₺${yard.partPrice}`, pick: dealer.root,
       spot: () => socketWorld(dealer, "customer"), face: () => dealer.root.position,
       interact: () => { dealer.actions.ring(); yard.buyPart(playerPos) },
     },

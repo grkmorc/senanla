@@ -24,6 +24,8 @@ export interface Interactable {
 export interface WorldLabel {
   text: string
   at: Vector3
+  /** Accent for the name plate dot (CSS colour). */
+  color?: string
 }
 
 export interface LevelContext {
