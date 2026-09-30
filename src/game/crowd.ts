@@ -50,10 +50,24 @@ export class Crowd<M extends CrowdMember> {
     this.reflow()
   }
 
-  /** First in line, but only once they're standing at the counter. */
+  /**
+   * The customer to serve: the first one in line who has actually arrived. The line is
+   * kept in arrival order (see `promote`), so this is whoever got here first.
+   */
   head(): M | null {
-    const h = this.queue[0]
-    return h && h.state === "queued" ? h : null
+    return this.queue.find((m) => m.state === "queued") ?? null
+  }
+
+  /** Someone just reached the line: move them ahead of everyone still walking over. */
+  private promote(m: M) {
+    const i = this.queue.indexOf(m)
+    let j = i
+    while (j > 0 && this.queue[j - 1].state !== "queued") j--
+    if (j < i) {
+      this.queue.splice(i, 1)
+      this.queue.splice(j, 0, m)
+      this.reflow()
+    }
   }
 
   dequeue(m: M) {
@@ -69,10 +83,13 @@ export class Crowd<M extends CrowdMember> {
       const dest = m.pawn.destination
       const standing = !m.pawn.moving && m.pawn.root.position.distanceTo(slot) < 0.05
       if (standing || (dest && dest.distanceTo(slot) < 0.05)) return
-      m.state = "toQueue"
+      // Someone already in line just shuffles up a place: they stay "queued" (and servable).
+      const arrived = m.state === "queued"
+      if (!arrived) m.state = "toQueue"
       m.pawn.goTo(this.d.nav, slot.x, slot.z, () => {
         m.state = "queued"
         m.pawn.faceTowards(slot.clone().add(this.d.queueFacing))
+        if (!arrived) this.promote(m)
       })
     })
   }
