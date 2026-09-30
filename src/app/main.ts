@@ -14,6 +14,17 @@ const say = (msg: string) => {
   toastTimer = window.setTimeout(() => status.classList.remove("show"), 2800)
 }
 
+const newsEl = $("news")
+let newsTimer = 0
+const news = (title: string, body: string) => {
+  $("news-title").textContent = title
+  $("news-body").textContent = body
+  newsEl.classList.add("show")
+  clearTimeout(newsTimer)
+  newsTimer = window.setTimeout(() => newsEl.classList.remove("show"), 7500)
+}
+newsEl.addEventListener("click", () => newsEl.classList.remove("show"))
+
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches
 const fade = (swap: () => void) => {
   if (reduceMotion) { swap(); return }
@@ -182,7 +193,7 @@ const onCelebrate = (t: Tier) => {
 }
 $("cel-ok").addEventListener("click", () => celebrate.close())
 
-const game = createGame($("view"), { say, hud, overlay: $("overlay"), fade, openCareer, celebrate: onCelebrate })
+const game = createGame($("view"), { say, news, hud, overlay: $("overlay"), fade, openCareer, celebrate: onCelebrate })
 
 document.querySelectorAll<HTMLButtonElement>(".places [data-go]").forEach((btn) => btn.addEventListener("click", () => {
   const target = btn.dataset.go === "business" ? game.businessLevel : btn.dataset.go

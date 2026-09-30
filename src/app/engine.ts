@@ -49,6 +49,8 @@ export interface HudState {
 
 export interface GameUi {
   say(msg: string): void
+  /** Neighbourhood news: something new opened on the street. */
+  news(title: string, body: string): void
   hud(state: HudState): void
   /** Container for floating world-space labels. */
   overlay: HTMLElement
@@ -124,7 +126,7 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
   const resumed = loadGame(economy)
   economy.onNewDay(() => saveGame(economy))
   const go = (to: LevelId) => switchTo(to)
-  const outdoor = createOutdoorLevel(kit, economy, go, windowGlass, (focus) => ui.openCareer(focus))
+  const outdoor = createOutdoorLevel(kit, economy, go, windowGlass, (focus) => ui.openCareer(focus), ui.news)
   const kiosk = createKioskLevel(kit, economy, go)
   const grocery = createGroceryLevel(kit, economy, go)
   const levels: Record<LevelId, Level> = { outdoor, kiosk, grocery }

@@ -52,6 +52,11 @@ export type ShopSlot =
   | "surface.soil"
   | "prop.bottle"
   | "surface.fridgeLight"
+  | "surface.turf"
+  | "surface.turfAlt"
+  | "prop.net"
+  | "surface.plywood"
+  | "surface.playMat"
 
 interface SlotSpec { color: string; roughness: number; metalness: number; emissive?: string; emissiveIntensity?: number; opacity?: number }
 
@@ -103,6 +108,11 @@ const DEFAULTS: Record<ShopSlot, SlotSpec> = {
   "surface.fridgeLight":{ color: "#eef6fb", roughness: 0.4,  metalness: 0.0, emissive: "#dff0ff", emissiveIntensity: 0.55 },
   "surface.carGlass":   { color: "#1d2a33", roughness: 0.08, metalness: 0.7 },
   "signal.green":       { color: "#6dff9a", roughness: 0.35, metalness: 0.0, emissive: "#22e070", emissiveIntensity: 2.0 },
+  "surface.turf":       { color: "#4c8a3a", roughness: 0.95, metalness: 0.0 },
+  "surface.turfAlt":    { color: "#58993f", roughness: 0.95, metalness: 0.0 },
+  "prop.net":           { color: "#f2f2ee", roughness: 0.8,  metalness: 0.0, opacity: 0.4 },
+  "surface.plywood":    { color: "#c9a36b", roughness: 0.85, metalness: 0.0 },
+  "surface.playMat":    { color: "#b4533e", roughness: 0.95, metalness: 0.0 },
 }
 
 export interface ShopMaterialSource {

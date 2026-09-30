@@ -12,22 +12,30 @@ export class Pedestrians {
   private readonly people: { pawn: Pawn; wait: number }[] = []
 
   constructor(
-    scene: Object3D,
+    private readonly scene: Object3D,
     private readonly nav: NavGrid,
     private readonly walkable: Rect[],
     private readonly rng: () => number,
     count: number,
     private readonly groundAt: (x: number, z: number) => number,
   ) {
-    for (let i = 0; i < count; i++) {
-      const look = CUSTOMER_LOOKS[Math.floor(rng() * CUSTOMER_LOOKS.length)]
-      const pawn = new Pawn(look, 1.1 + rng() * 0.6)
+    this.setCount(count)
+  }
+
+  get count() { return this.people.length }
+
+  /** Grow or shrink the crowd; newcomers appear at random spots on the walkways. */
+  setCount(n: number) {
+    while (this.people.length < n) {
+      const look = CUSTOMER_LOOKS[Math.floor(this.rng() * CUSTOMER_LOOKS.length)]
+      const pawn = new Pawn(look, 1.1 + this.rng() * 0.6)
       const [x, z] = this.randomPoint()
-      pawn.root.position.set(x, groundAt(x, z), z)
-      pawn.root.rotation.y = rng() * Math.PI * 2
-      scene.add(pawn.root)
-      this.people.push({ pawn, wait: rng() * 3 })
+      pawn.root.position.set(x, this.groundAt(x, z), z)
+      pawn.root.rotation.y = this.rng() * Math.PI * 2
+      this.scene.add(pawn.root)
+      this.people.push({ pawn, wait: this.rng() * 3 })
     }
+    while (this.people.length > n) this.people.pop()!.pawn.dispose()
   }
 
   /** Area-weighted random point on the sidewalks. */

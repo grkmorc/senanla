@@ -23,6 +23,10 @@ import { createModel as plaza } from "@/models/shop-kit/plaza"
 import { createModel as fountain } from "@/models/shop-kit/fountain"
 import { createModel as parkBench } from "@/models/shop-kit/park-bench"
 import { createModel as planter } from "@/models/shop-kit/planter"
+import { createModel as pitch } from "@/models/shop-kit/football-pitch"
+import { createModel as playground } from "@/models/shop-kit/playground"
+import { createModel as barberPole } from "@/models/shop-kit/barber-pole"
+import { createModel as site } from "@/models/shop-kit/construction-site"
 
 const factories: Record<string, (k: ReturnType<typeof createShopKit>) => { root: Object3D; dispose(): void }> = {
   "shop-floor": (k) => floor(k, { width: 6, depth: 5 }),
@@ -51,6 +55,13 @@ const factories: Record<string, (k: ReturnType<typeof createShopKit>) => { root:
   "park-bench": (k) => parkBench(k),
   "planter": (k) => planter(k),
   "drinks-fridge-wide": (k) => fridge(k, { width: 1.6, stock: 0.6, brand: "blue" }),
+  "football-pitch": (k) => pitch(k),
+  "football-pitch-bare": (k) => pitch(k, { width: 14, depth: 9, fence: false, floodlights: false }),
+  "playground": (k) => playground(k),
+  "playground-3": (k) => playground(k, { width: 10, swings: 3 }),
+  "barber-pole": (k) => barberPole(k),
+  "construction-site": (k) => site(k),
+  "construction-site-slab": (k) => site(k, { width: 10, depth: 9, floors: 0, crane: false }),
 }
 
 type Tri = { a: Vector3; b: Vector3; c: Vector3; mesh: string }

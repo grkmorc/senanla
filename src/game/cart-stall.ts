@@ -88,7 +88,7 @@ export class CartStall {
         this.crowd.d.entrance.copy(this.origins[Math.floor(rng() * this.origins.length)])
         const c = this.crowd.spawn((pawn) => ({ pawn, state: "new", patience: 0, maxPatience: 1, want: 1 + Math.floor(rng() * 3) }))
         this.crowd.joinQueue(c, PATIENCE * this.eco.stats.patienceMult)
-        this.spawnIn = (7.5 - this.eco.reputation * 0.7 + rng() * 2.5) * this.eco.stats.spawnMult
+        this.spawnIn = (7.5 - this.eco.reputation * 0.7 + rng() * 2.5) * this.eco.spawnScale
       }
       const every = this.eco.stats.autoServeEvery
       if (every > 0) {

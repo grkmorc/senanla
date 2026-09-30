@@ -5,6 +5,7 @@
 import type { Vector3 } from "three"
 import { Upgrades } from "./upgrades"
 import { tierById, type TierId } from "./career"
+import { openedCount, FOOTFALL_PER_DEV } from "./neighbourhood"
 
 export type Tone = "gain" | "loss" | "info"
 
@@ -33,6 +34,9 @@ export class Economy {
   constructor(readonly notify: Notifier) {}
 
   get stats() { return this.upgrades.stats }
+
+  /** Customer spawn-interval multiplier: upgrades plus a growing neighbourhood. */
+  get spawnScale() { return this.stats.spawnMult / (1 + FOOTFALL_PER_DEV * openedCount(this.day)) }
 
   /** Buy the next level of an upgrade. Returns the new level, or null when it can't be bought. */
   buyUpgrade(id: string): number | null {

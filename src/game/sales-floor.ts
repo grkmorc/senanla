@@ -92,7 +92,7 @@ export class SalesFloor {
       const maxCustomers = this.t.baseCustomers + Math.ceil(this.shelves.length / 2) - 1
       if (!this.eco.closing && this.spawnIn <= 0 && this.crowd.members.length < maxCustomers) {
         this.spawn()
-        this.spawnIn = (this.t.spawnBase - this.eco.reputation * 1.1 + rng() * 3) * this.eco.stats.spawnMult
+        this.spawnIn = (this.t.spawnBase - this.eco.reputation * 1.1 + rng() * 3) * this.eco.spawnScale
       }
       const every = this.eco.stats.autoServeEvery
       if (every > 0) {

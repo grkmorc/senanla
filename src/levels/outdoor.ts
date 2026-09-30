@@ -21,6 +21,8 @@ import { createFountain } from "@/models/shop-kit/fountain"
 import { createParkBench } from "@/models/shop-kit/park-bench"
 import { createPlanter } from "@/models/shop-kit/planter"
 import { createTrafficLight, type TrafficLight } from "@/models/shop-kit/traffic-light"
+import { createBarberPole } from "@/models/shop-kit/barber-pole"
+import { SignFace } from "@/app/signage"
 import { Atmosphere } from "@/app/atmosphere"
 import { Pawn } from "@/app/pawn"
 import { mulberry32, type Economy } from "@/game/economy"
@@ -30,6 +32,8 @@ import { Traffic, SignalController, type Lane } from "@/sim/traffic"
 import { Pedestrians, type Rect } from "@/sim/pedestrians"
 import { socketWorld } from "./interior"
 import { navFor, type Interactable, type Level, type LevelId, type WorldLabel } from "./level"
+import { NEIGHBOUR_SIGNS, tierSign, type NeighbourShop } from "./shop-signs"
+import { buildNeighbourhood, mountBuildingSign } from "./neighbourhood"
 
 type AnyModel = ModelInstance<any, any, any>
 
@@ -52,6 +56,8 @@ const SOUTH_FRONT = S1 + 0.1
 interface Frontage {
   /** The career business this building houses, if any. */
   role?: TierId
+  /** Neighbour's trade, painted on the sign board. */
+  shop?: NeighbourShop
   x: number
   side: "n" | "s"
   config: Partial<ShopBuildingConfig>
@@ -63,17 +69,16 @@ const FRONTAGES: Frontage[] = [
   { role: "kiosk", x: -17, side: "n", config: { width: 5.5, depth: 5.5, facade: "plaster", awning: "amber" } },
   { role: "grocery", x: 2, side: "n", config: { width: 8.5, depth: 7, facade: "plaster", awning: "teal", upperFloors: 1 } },
   { role: "supermarket", x: 16.5, side: "n", config: { width: 12, depth: 9, facade: "metal", awning: "none", shutter: true } },
-  // Neighbours.
-  { x: -24, side: "n", config: { width: 8, depth: 8, facade: "brick", awning: "none", upperFloors: 2 } },
-  { x: -34.5, side: "n", config: { width: 8, depth: 7, facade: "plaster", awning: "amber", upperFloors: 1 } },
-  { x: -45, side: "n", config: { width: 9, depth: 9, facade: "plaster", awning: "none", upperFloors: 3 } },
-  { x: 42, side: "n", config: { width: 9, depth: 8, facade: "brick", awning: "red", upperFloors: 2 } },
-  { x: 52, side: "n", config: { width: 7.5, depth: 7, facade: "plaster", awning: "teal", upperFloors: 1 } },
-  { x: -42, side: "s", config: { width: 10, depth: 9, facade: "brick", awning: "none", upperFloors: 3 } },
-  { x: -30, side: "s", config: { width: 9, depth: 8, facade: "plaster", awning: "none", upperFloors: 2 } },
+  // Neighbours. (The north-east corner shop and the lot at x -30 across the road belong
+  // to the growing neighbourhood, see ./neighbourhood.)
+  { shop: "berber", x: -24, side: "n", config: { width: 8, depth: 8, facade: "brick", awning: "none", upperFloors: 2 } },
+  { shop: "firin", x: -34.5, side: "n", config: { width: 8, depth: 7, facade: "plaster", awning: "amber", upperFloors: 1 } },
+  { shop: "eczane", x: -45, side: "n", config: { width: 9, depth: 9, facade: "plaster", awning: "none", upperFloors: 3 } },
+  { shop: "kasap", x: 42, side: "n", config: { width: 9, depth: 8, facade: "brick", awning: "red", upperFloors: 2 } },
+  { shop: "kahvehane", x: -42, side: "s", config: { width: 10, depth: 9, facade: "brick", awning: "none", upperFloors: 3 } },
   { role: "restaurant", x: -19.5, side: "s", config: { width: 7.5, depth: 7, facade: "brick", awning: "red", upperFloors: 1 } },
   { role: "tech", x: 42.5, side: "s", config: { width: 9, depth: 8, facade: "plaster", awning: "none", upperFloors: 2 } },
-  { x: 52.5, side: "s", config: { width: 8, depth: 9, facade: "brick", awning: "none", upperFloors: 3 } },
+  { shop: "terzi", x: 52.5, side: "s", config: { width: 8, depth: 9, facade: "brick", awning: "none", upperFloors: 3 } },
 ]
 
 export interface OutdoorLevel extends Level {
@@ -83,6 +88,7 @@ export interface OutdoorLevel extends Level {
 export function createOutdoorLevel(
   kit: ShopKit, eco: Economy, go: (to: LevelId) => void, windowGlass: MeshStandardMaterial,
   openCareer: (focus: TierId) => void,
+  news: (title: string, body: string) => void = () => {},
 ): OutdoorLevel {
   const scene = new Scene()
   const models: AnyModel[] = []
@@ -113,6 +119,39 @@ export function createOutdoorLevel(
     return { f, model: m }
   })
   const shops = buildings.filter((b) => b.f.role)
+
+  // Painted signs: neighbours show their trade, career buildings follow your progress.
+  const signFaces: SignFace[] = []
+  const careerSigns = shops.map(({ f, model }) => {
+    const face = mountBuildingSign(model)
+    signFaces.push(face)
+    return { id: f.role!, face }
+  })
+  for (const { f, model } of buildings) {
+    if (!f.shop) continue
+    const face = mountBuildingSign(model)
+    face.set(NEIGHBOUR_SIGNS[f.shop])
+    signFaces.push(face)
+  }
+  // A spinning pole by the barber's door, a blade sign sticking out of the pharmacy.
+  const barber = buildings.find((b) => b.f.shop === "berber")!
+  const pole = place(createBarberPole(kit), barber.f.x + 1.05, NORTH_FRONT)
+  pole.root.position.y = 1.15
+  const pharmacy = buildings.find((b) => b.f.shop === "eczane")!
+  const blade = new Group()
+  blade.userData.excludeFromExport = true
+  for (const side of [1, -1]) {
+    const face = new SignFace(1.1, 0.55)
+    face.set({ text: "Eczane", bg: "#f7f4ef", fg: "#c62828", accent: "#c62828", icon: "cross" })
+    face.mesh.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2
+    face.mesh.position.x = side * 0.021
+    blade.add(face.mesh)
+    signFaces.push(face)
+  }
+  const bladeBoard = new Mesh(new BoxGeometry(0.04, 0.62, 1.18), new MeshStandardMaterial({ color: "#c62828", roughness: 0.5 }))
+  blade.add(bladeBoard)
+  blade.position.set(pharmacy.f.x + (pharmacy.f.config.width ?? 8) / 2 - 0.9, 3.2, NORTH_FRONT + 0.72)
+  scene.add(blade)
 
   // ---------------------------------------------------------------- Simitçi Meydanı
   // A small paved square between the kiosk and the grocery, with the cart at its front.
@@ -196,7 +235,7 @@ export function createOutdoorLevel(
   const trunkMat = new MeshStandardMaterial({ color: "#5a4030", roughness: 0.9 })
   const leafMats = ["#4f7a3f", "#5d8a45", "#6b8f3a", "#48703c"].map((c) => new MeshStandardMaterial({ color: c, roughness: 0.9, flatShading: true }))
   const treeSpots: [number, number][] = []
-  for (let i = 0; i < 16; i++) treeSpots.push([-11 + rng() * 31, 16 + rng() * 14])
+  for (let i = 0; i < 44; i++) treeSpots.push([-15 + rng() * 39, 15 + rng() * 21])
   for (let x = -50; x <= 20; x += 6.5) treeSpots.push([x + (rng() - 0.5) * 2, -14 - rng() * 8])
   for (let x = 40; x <= 54; x += 6) treeSpots.push([x + (rng() - 0.5) * 2, -14 - rng() * 6])
   for (let x = -52; x <= -14; x += 7) treeSpots.push([x + (rng() - 0.5), 26 + rng() * 6])
@@ -219,11 +258,20 @@ export function createOutdoorLevel(
     t.position.set(x, y, z)
     treeGroup.add(t)
   }
+  // The growing neighbourhood: park, playground, halı saha, new shops and buildings.
+  const growth = buildNeighbourhood({
+    kit, scene, place, eco, rng: mulberry32(99), plantTree: (x, y, z, sc) => plantTree(x, y, z, sc),
+    southEdge: S1, roadWestEdge: Q0 - SW, news, say: (m) => eco.notify.say(m),
+    popup: (at, text) => eco.notify.popup(at, text, "info", "outdoor"),
+  })
+
+  const free = (x: number, z: number) => !growth.reserved.some(([x0, z0, x1, z1]) => x > x0 - 1 && x < x1 + 1 && z > z0 - 1 && z < z1 + 1)
   for (const p of planters) {
     const at = p.sockets.plant.anchor.getWorldPosition(new Vector3())
     plantTree(at.x, at.y - 0.3, at.z, 0.75)
   }
   for (const [x, z] of treeSpots) {
+    if (!free(x, z)) continue
     const t = new Group()
     const trunk = new Mesh(trunkGeo, trunkMat)
     trunk.position.y = 0.7
@@ -255,7 +303,7 @@ export function createOutdoorLevel(
   ]
   const nav = navFor(area,
     [...buildings.map((b) => b.model), cart, fountain, ...benches, ...planters, ...lamps, ...heads.map((h) => h.model)].map((m) => m.root).concat(crates), 0.26, 0.35,
-    [...roadBlocks, ...trees.map(([x, z]) => [x - 0.2, z - 0.2, x + 0.2, z + 0.2] as [number, number, number, number])])
+    [...roadBlocks, ...growth.blockers, ...trees.map(([x, z]) => [x - 0.2, z - 0.2, x + 0.2, z + 0.2] as [number, number, number, number])])
 
   const walkways: Rect[] = [
     [-W / 2 + 1, S0 + 0.3, W / 2 - 1, R0 - 0.45],
@@ -264,10 +312,11 @@ export function createOutdoorLevel(
     [Q1 + 0.45, -D / 2 + 1, Q1 + SW - 0.3, S0],
     [Q0 - SW + 0.3, S1, Q0 - 0.45, D / 2 - 1],
     [Q1 + 0.45, S1, Q1 + SW - 0.3, D / 2 - 1],
-    [-10, 15, 20, 30], // park
+    ...growth.walkways, // park
     [-13, -8.8, -4, -0.6], // Simitçi Meydanı
   ]
-  const people = new Pedestrians(scene, nav, walkways, rng, 22, groundAt)
+  const people = new Pedestrians(scene, nav, walkways, rng, growth.population(), groundAt)
+  let syncedDay = eco.day
 
   // ---------------------------------------------------------------- traffic
   const E = 6 // lanes start/end this far outside the block
@@ -291,6 +340,8 @@ export function createOutdoorLevel(
     windowGlass.emissiveIntensity = k * 1.4
     lampLights.forEach((p) => { p.intensity = k * 10 })
     lamps.forEach((l) => l.actions.setOn(t > 0.55))
+    signFaces.forEach((f) => f.setGlow(k))
+    growth.setNight(k, t > 0.55)
   }
 
   // ---------------------------------------------------------------- the cart business
@@ -354,7 +405,11 @@ export function createOutdoorLevel(
           if (!t.ready) return `YAKINDA · ${shortName(id).toLocaleUpperCase("tr")}`
           return `KİRALIK · ₺${t.cost.toLocaleString("tr-TR")}`
         },
-        at: socketWorld(model, "sign"),
+        // Above the roofline, so the painted sign board stays readable.
+        at: (() => {
+          const c = model.getConfig()
+          return socketWorld(model, "sign").setY(c.height + c.upperFloors * 3 + 1.1)
+        })(),
         color: plateColor(id),
         get kind() {
           if (id === eco.tier) return "own" as const
@@ -371,10 +426,13 @@ export function createOutdoorLevel(
     stall.active = onCart
     if (!onCart) stall.clear()
     cart.root.visible = vendor.root.visible = crates.visible = halo.visible = onCart
+    careerSigns.forEach(({ id, face }) => face.set(tierSign(id, eco.tier)))
     interactables.length = 0
     if (onCart) interactables.push(...cartThings)
     interactables.push(...shopThings.filter((it) => tierIndex(it.id as TierId) >= tierIndex(eco.tier)))
   }
+  // Repaint the signs once the display font has arrived.
+  document.fonts?.ready.then(() => [...signFaces, ...growth.signs].forEach((f) => f.refresh()))
   eco.onTierChange(applyTier)
   applyTier()
 
@@ -411,6 +469,13 @@ export function createOutdoorLevel(
       vendor.update(dt)
       signals.update(dt)
       for (const h of heads) h.model.actions.setSignal(signals.of(h.group))
+      if (eco.day !== syncedDay) {
+        // A day went by: announce what opened. (Jumps, e.g. a reset, update quietly.)
+        growth.sync(eco.day !== syncedDay + 1)
+        people.setCount(growth.population())
+        syncedDay = eco.day
+      }
+      growth.update(dt)
       people.update(dt)
       traffic.update(dt, people.positions())
       for (const m of models) m.update(dt)
@@ -418,8 +483,11 @@ export function createOutdoorLevel(
     setDayProgress(t) { atmosphere.setDayProgress(t) },
     moods: () => stall.moods(),
     work: () => null,
-    debug: { traffic, people, signals, stall },
+    debug: { traffic, people, signals, stall, growth },
     dispose() {
+      growth.dispose()
+      signFaces.forEach((f) => f.dispose())
+      bladeBoard.geometry.dispose(); (bladeBoard.material as MeshStandardMaterial).dispose()
       traffic.dispose()
       people.dispose()
       stall.dispose()

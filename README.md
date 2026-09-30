@@ -26,6 +26,29 @@ Kaldırımda bir **seyyar simit tezgâhıyla** başlarsın. Sat, para biriktir, 
 - Çırak / tezgâhtar / kasiyer gibi yardımcılar sen başka işle uğraşırken sıradakine satış yapar.
 - İlerleme bu tarayıcıda otomatik kaydedilir.
 
+### Mahalle büyüyor
+
+Sokaktaki her dükkanın bir tabelası var: **Berber** (kapısında dönen direk), **Fırın**, **Eczane** (dışa taşan
+bayrak tabela), **Kasap**, **Kahvehane**, **Terzi**. Senin basamaklarının binaları da tabelalı: sahip
+olduğun dükkan kendi renginde "Senin dükkanın" yazar, boş olanlarda **KİRALIK**, henüz gelmeyenlerde
+**SÜPERMARKET · Yakında** gibi tabelalar asılıdır. Tabelalar akşam yanar.
+
+Yolun karşısında bir **park** var (taş meydan, banklar, ağaçlar). Günler geçtikçe mahalle gelişir;
+her yeni yer önce bir iki gün **inşaat** (tahta perde, iskelet, dönen vinç) olur, sonra açılır ve bir
+haber kartı çıkar:
+
+| Gün | Açılan |
+| --- | --- |
+| 2 | Parka çocuk parkı (kaydırak, sallanan salıncaklar) |
+| 3 | Halı saha: ışıklı, fileli kaleler; çocuklar maç yapar, gol olunca ekranda görünür |
+| 4 | Köşedeki kiralık dükkana kırtasiye |
+| 5 | Karşı sırada yeni apartman, altında çiçekçi |
+| 7 | N-S caddesinde köşe kafe |
+
+Her açılış sokağa daha çok yaya ve bütün işletmelerine **%6 daha sık müşteri** getirir. Yeni yer eklemek için
+`src/game/neighbourhood.ts` içindeki `DEVELOPMENTS` listesine bir satır ekleyip `src/levels/neighbourhood.ts`
+içinde arsasını tanımlaman yeterli.
+
 ## Yapı
 
 ```text
@@ -50,6 +73,10 @@ src/models/shop-kit/plaza.ts             # taş döşeli meydan, bordür ve halk
 src/models/shop-kit/fountain.ts          # sekizgen havuz, hareketli su
 src/models/shop-kit/park-bench.ts        # ahşap bank
 src/models/shop-kit/planter.ts           # taş saksı (ağaç soketi)
+src/models/shop-kit/football-pitch.ts    # halı saha: çizgiler, fileli kaleler, çit, action: setLights
+src/models/shop-kit/playground.ts        # çocuk parkı: kaydırak kulesi, sallanan salıncaklar
+src/models/shop-kit/barber-pole.ts       # dönen berber direği
+src/models/shop-kit/construction-site.ts # inşaat: perde, kat kat iskelet (floors), dönen vinç
 src/app/engine.ts                    # motor: renderer, kamera, input, oyuncu, level geçişleri
 src/app/pawn.ts                      # eklemli oyuncu/müşteri karakterleri, yürüme animasyonu
 src/app/atmosphere.ts                # gün saatine bağlı güneş, gökyüzü ve iç mekân ışığı
@@ -61,9 +88,12 @@ src/game/sales-floor.ts              # yürüyerek alışveriş yapılan dükkan
 src/game/crowd.ts                    # müşteri doğurma, sıra, ayrılma
 src/game/upgrades.ts                 # geliştirme kataloğu (seviye, fiyat, etki) ve Stats
 src/game/save.ts                     # localStorage kayıt / yükleme / sıfırlama
+src/game/neighbourhood.ts            # mahallenin gün gün büyümesi (inşaat → açılış, müşteri etkisi)
+src/app/signage.ts                   # canvas'a çizilen dükkan tabelaları (gece parlar)
 src/levels/                          # outdoor (sokak + tezgâh), kiosk (büfe), grocery (bakkal) + ortak iç mekân iskeleti
 src/sim/traffic.ts                   # şeritler, ışık döngüsü, takip mesafesi, yayaya yol verme
 src/sim/pedestrians.ts               # kaldırımda gezen, yaya geçidinden karşıya geçen yayalar
+src/sim/pitch-game.ts                # halı sahada top peşinde koşan çocuklar
 src/app/iso-camera.ts                # gerçek izometrik (35.264°) Orthographic rig
 src/app/nav-grid.ts                  # 8 yönlü A* + string-pull yol düzeltme
 scripts/coplanar-check.ts            # vibe-model kural 9 kontrolü
