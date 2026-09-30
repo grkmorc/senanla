@@ -253,6 +253,19 @@
     .branch-title { margin:10px 0 0; padding:12px 0 2px; border-top:1px solid var(--rule); font:600 10.5px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--faint); }
     .career footer { padding:12px 22px 18px; border-top:1px solid var(--rule); color:var(--faint); font-size:12.5px; }
 
+    .places button { position:relative; }
+    .places .dot { position:absolute; top:5px; right:5px; width:8px; height:8px; border-radius:50%; background:var(--gain);
+      box-shadow:0 0 0 2px var(--panel-solid), 0 0 10px var(--gain); }
+    .hood-stats { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; padding:8px 22px 4px; }
+    .hood-stats div { padding:10px 12px; border-radius:10px; background:var(--raise); }
+    .hood-stats b { display:block; font:800 20px/1.1 var(--display); color:var(--ink); font-variant-numeric:tabular-nums; }
+    .hood-stats span { font:600 10px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--faint); }
+    .step[data-state="building"] .ico { animation:pulse 1.6s ease-in-out infinite; }
+    .tag.build { color:var(--ground); background:var(--amber); }
+    .show { display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:8px; border:1px solid var(--rule);
+      background:var(--raise); color:var(--ink); cursor:pointer; font:700 13px/1 var(--display); }
+    .show:hover { border-color:var(--c); color:var(--c); }
+    .show svg { width:15px; height:15px; }
     dialog.celebrate { width:min(26rem, calc(100vw - 32px)); padding:28px 26px 22px; border:1px solid color-mix(in oklab, var(--c) 50%, transparent);
       border-radius:18px; color:var(--ink); text-align:center; background:radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--c) 22%, var(--panel-solid)), var(--panel-solid));
       box-shadow:0 30px 90px rgba(0,0,0,.6), 0 0 60px color-mix(in oklab, var(--c) 25%, transparent); }
@@ -332,6 +345,13 @@
     <symbol id="i-fridge" viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M5 10h14M9 6v2M9 13v3"/></symbol>
     <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 2v20M4.9 6.5l14.2 11M19.1 6.5 4.9 17.5M9 4l3 2 3-2M9 20l3-2 3 2"/></symbol>
     <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+    <symbol id="i-tree" viewBox="0 0 24 24"><path d="M12 22v-6M12 16c-4 0-7-2.5-7-6a7 7 0 0 1 14 0c0 3.5-3 6-7 6Z"/></symbol>
+    <symbol id="i-ball" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m12 7 4 3-1.5 4.5h-5L8 10l4-3ZM12 3v4M16 10l4.5-1.5M14.5 14.5l2.5 4M9.5 14.5 7 18.5M8 10 3.5 8.5"/></symbol>
+    <symbol id="i-cup" viewBox="0 0 24 24"><path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8ZM17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 2v3M12 2v3"/></symbol>
+    <symbol id="i-cake" viewBox="0 0 24 24"><path d="M4 21V13h16v8M3 21h18M4 16c2 1.5 4 1.5 6 0s4-1.5 6 0 3 1 4 0M12 13V9M12 6.5c-1-1 0-2.5 0-2.5s1 1.5 0 2.5"/></symbol>
+    <symbol id="i-bed" viewBox="0 0 24 24"><path d="M3 19V6M3 15h18v4M21 15v-3a3 3 0 0 0-3-3h-8v6"/><circle cx="6.5" cy="11" r="1.8"/></symbol>
+    <symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M7 12h10M4 8v8M7 6v12M17 6v12M20 8v8"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
   </svg>
 
@@ -343,7 +363,8 @@
     <nav class="places glass" aria-label="Mekânlar">
       <button type="button" data-go="outdoor" style="--c:var(--c-street)" aria-current="true" title="Sokak (Esc)"><svg class="i"><use href="#i-street"/></svg><span>Sokak</span></button>
       <button type="button" data-go="business" id="go-business" style="--c:var(--c-sales)" hidden><svg class="i"><use href="#i-kiosk" id="go-business-ico"/></svg><span id="go-business-name">Dükkan</span></button>
-      <button type="button" id="career-open" style="--c:var(--amber)" title="Esnaf yolu"><svg class="i"><use href="#i-flag"/></svg><span>Esnaf yolu</span></button>
+      <button type="button" id="career-open" style="--c:var(--amber)" title="Esnaf yolu (Y)"><svg class="i"><use href="#i-flag"/></svg><span>Esnaf yolu</span></button>
+      <button type="button" id="hood-open" style="--c:var(--gain)" title="Mahalle (M)"><svg class="i"><use href="#i-city"/></svg><span>Mahalle</span><b class="dot" id="hood-dot" hidden></b></button>
     </nav>
 
     <div class="day glass" aria-label="Gün ve saat">
@@ -412,6 +433,19 @@
     <footer>Kasandaki para: <b id="career-money" style="color:var(--amber);font:700 13px/1 var(--mono)">₺40</b></footer>
   </dialog>
 
+  <dialog class="career hood" id="hood" aria-labelledby="hood-title">
+    <header>
+      <div>
+        <h2 id="hood-title">Mahalle</h2>
+        <p class="sub" id="hood-sub">Mahalle gün gün büyüyor. Her yeni yer sokağa daha çok insan, işletmene daha çok müşteri getirir.</p>
+      </div>
+      <button type="button" class="close" id="hood-close" aria-label="Kapat"><svg class="i"><use href="#i-x"/></svg></button>
+    </header>
+    <div class="hood-stats" id="hood-stats"></div>
+    <ol class="ladder" id="hood-list"></ol>
+    <footer>İnşaatı başlayan bir yer bir iki gün içinde açılır. <b style="color:var(--ink)">Göster</b> kamerayı oraya götürür.</footer>
+  </dialog>
+
   <dialog class="celebrate" id="celebrate" aria-labelledby="cel-title">
     <div class="badge-ico"><svg class="i"><use href="#i-kiosk" id="cel-ico"/></svg></div>
     <span class="k">Yeni işletme</span>
@@ -467,6 +501,7 @@
       <span><kbd>Q</kbd><kbd>E</kbd>kamerayı döndür</span>
       <span><kbd>U</kbd>geliştirmeler</span>
       <span><kbd>Y</kbd>esnaf yolu</span>
+      <span><kbd>M</kbd>mahalle</span>
       <span><kbd>G</kbd>grafik kalitesi</span>
       <span>Mobil: <kbd>dokun</kbd>seç</span>
       <span><kbd>2 parmak</kbd>kaydır, yakınlaştır</span>

@@ -27,6 +27,7 @@ import { createModel as pitch } from "@/models/shop-kit/football-pitch"
 import { createModel as playground } from "@/models/shop-kit/playground"
 import { createModel as barberPole } from "@/models/shop-kit/barber-pole"
 import { createModel as site } from "@/models/shop-kit/construction-site"
+import { createModel as roofSign } from "@/models/shop-kit/rooftop-sign"
 
 const factories: Record<string, (k: ReturnType<typeof createShopKit>) => { root: Object3D; dispose(): void }> = {
   "shop-floor": (k) => floor(k, { width: 6, depth: 5 }),
@@ -61,6 +62,8 @@ const factories: Record<string, (k: ReturnType<typeof createShopKit>) => { root:
   "playground-3": (k) => playground(k, { width: 10, swings: 3 }),
   "barber-pole": (k) => barberPole(k),
   "construction-site": (k) => site(k),
+  "rooftop-sign": (k) => roofSign(k),
+  "rooftop-sign-wide": (k) => roofSign(k, { width: 9, height: 1.8, lift: 0.8 }),
   "construction-site-slab": (k) => site(k, { width: 10, depth: 9, floors: 0, crane: false }),
 }
 

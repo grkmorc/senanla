@@ -6,6 +6,7 @@
 import { CanvasTexture, Mesh, MeshStandardMaterial, PlaneGeometry, SRGBColorSpace, type Object3D } from "three"
 
 export type SignIcon = "pole" | "bread" | "cross" | "knife" | "pencil" | "cup" | "needle" | "flower" | "phone" | "cart" | "pot" | "helmet" | "ball"
+  | "glasses" | "bank" | "camera" | "cake" | "bed" | "dumbbell"
 
 export interface SignStyle {
   text: string
@@ -15,8 +16,10 @@ export interface SignStyle {
   /** Stripe along the bottom edge and the icon colour. */
   accent?: string
   icon?: SignIcon
-  /** Dim, unlit sign (closed / to let). */
+  /** Dim, unlit sign (closed / not open yet). */
   unlit?: boolean
+  /** Dot-matrix LED board: dark face, glowing letters, lit even by day. */
+  led?: boolean
 }
 
 const PX_PER_M = 200
@@ -28,6 +31,7 @@ export class SignFace {
   private readonly material: MeshStandardMaterial
   private key = ""
   private unlit = false
+  private led = false
   private glow = 0
 
   constructor(readonly width: number, readonly height: number) {
@@ -54,7 +58,9 @@ export class SignFace {
     if (key === this.key) return
     this.key = key
     this.unlit = !!style.unlit
-    draw(this.canvas, style)
+    this.led = !!style.led
+    if (style.led) drawLed(this.canvas, style)
+    else draw(this.canvas, style)
     this.texture.needsUpdate = true
     this.setGlow(this.glow)
   }
@@ -70,7 +76,8 @@ export class SignFace {
   /** 0 = daylight, 1 = full night glow. */
   setGlow(k: number) {
     this.glow = k
-    this.material.emissiveIntensity = this.unlit ? 0.05 : 0.18 + k * 0.75
+    if (this.led) this.material.emissiveIntensity = this.unlit ? 0.04 : 1.1 + k * 0.9
+    else this.material.emissiveIntensity = this.unlit ? 0.05 : 0.3 + k * 0.8
   }
 
   dispose() {
@@ -82,6 +89,62 @@ export class SignFace {
 }
 
 const FONT = `"Bricolage Grotesque", "Arial Black", Arial, sans-serif`
+
+function drawLed(cv: HTMLCanvasElement, s: SignStyle) {
+  const g = cv.getContext("2d")!
+  const W = cv.width
+  const H = cv.height
+  const on = !s.unlit
+  const fg = on ? s.fg : "#3b3b42"
+  const accent = on ? (s.accent ?? s.fg) : "#2c2c32"
+  g.fillStyle = "#070709"
+  g.fillRect(0, 0, W, H)
+  // A chaser row of LEDs round the edge.
+  const step = H * 0.09
+  const r = H * 0.022
+  g.fillStyle = accent
+  const dot = (x: number, y: number) => { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill() }
+  for (let x = step / 2; x < W; x += step) { dot(x, step * 0.55); dot(x, H - step * 0.55) }
+  for (let y = step * 1.5; y < H - step; y += step) { dot(step * 0.55, y); dot(W - step * 0.55, y) }
+
+  let left = step * 1.4
+  if (s.icon) {
+    const ir = H * 0.27
+    g.save()
+    if (on) { g.shadowColor = accent; g.shadowBlur = H * 0.1 }
+    drawIcon(g, s.icon, left + ir, H * 0.5, ir, accent, "#070709")
+    g.restore()
+    left += ir * 2 + H * 0.12
+  }
+  const right = W - step * 1.4
+  const avail = right - left
+  const cx = left + avail / 2
+  g.textAlign = "center"
+  g.textBaseline = "middle"
+  g.fillStyle = fg
+  if (on) { g.shadowColor = fg; g.shadowBlur = H * 0.14 }
+  const main = s.text.toLocaleUpperCase("tr")
+  let size = H * (s.sub ? 0.5 : 0.64)
+  g.font = `800 ${size}px ${FONT}`
+  const w = g.measureText(main).width
+  if (w > avail) { size *= avail / w; g.font = `800 ${size}px ${FONT}` }
+  g.fillText(main, cx, s.sub ? H * 0.42 : H * 0.53)
+  if (s.sub) {
+    let sub = H * 0.17
+    g.font = `700 ${sub}px ${FONT}`
+    const sw = g.measureText(s.sub.toLocaleUpperCase("tr")).width
+    if (sw > avail) { sub *= avail / sw; g.font = `700 ${sub}px ${FONT}` }
+    g.fillStyle = accent
+    if (on) g.shadowColor = accent
+    g.fillText(s.sub.toLocaleUpperCase("tr"), cx, H * 0.77)
+  }
+  g.shadowBlur = 0
+  // Dot-matrix mask: thin dark grid so the letters read as LED pixels.
+  const p = Math.max(3, Math.round(H / 34))
+  g.fillStyle = "rgba(0,0,0,0.5)"
+  for (let x = 0; x < W; x += p) g.fillRect(x, 0, 1, H)
+  for (let y = 0; y < H; y += p) g.fillRect(0, y, W, 1)
+}
 
 function draw(cv: HTMLCanvasElement, s: SignStyle) {
   const g = cv.getContext("2d")!
@@ -202,6 +265,37 @@ function drawIcon(g: CanvasRenderingContext2D, icon: SignIcon, x: number, y: num
     case "helmet":
       g.beginPath(); g.arc(0, r * 0.25, r * 0.8, Math.PI, 0); g.fill()
       g.fillRect(-r, r * 0.2, r * 2, r * 0.22)
+      break
+    case "glasses":
+      g.lineWidth = r * 0.2
+      for (const d of [-1, 1]) { g.beginPath(); g.arc(d * r * 0.5, 0, r * 0.38, 0, Math.PI * 2); g.stroke() }
+      g.beginPath(); g.moveTo(-r * 0.12, -r * 0.05); g.quadraticCurveTo(0, -r * 0.2, r * 0.12, -r * 0.05); g.stroke()
+      break
+    case "bank":
+      g.beginPath(); g.moveTo(-r, -r * 0.35); g.lineTo(0, -r); g.lineTo(r, -r * 0.35); g.closePath(); g.fill()
+      for (const d of [-0.65, -0.22, 0.22, 0.65]) g.fillRect(d * r - r * 0.1, -r * 0.25, r * 0.2, r * 0.9)
+      g.fillRect(-r, r * 0.7, r * 2, r * 0.22)
+      break
+    case "camera":
+      g.beginPath(); g.roundRect(-r, -r * 0.55, r * 2, r * 1.3, r * 0.2); g.fill()
+      g.fillRect(-r * 0.35, -r * 0.8, r * 0.7, r * 0.3)
+      g.fillStyle = bg; g.beginPath(); g.arc(0, r * 0.1, r * 0.42, 0, Math.PI * 2); g.fill()
+      g.fillStyle = c; g.beginPath(); g.arc(0, r * 0.1, r * 0.24, 0, Math.PI * 2); g.fill()
+      break
+    case "cake":
+      g.fillRect(-r * 0.85, -r * 0.05, r * 1.7, r * 0.8)
+      g.fillRect(-r * 0.6, -r * 0.5, r * 1.2, r * 0.45)
+      g.fillRect(-r * 0.05, -r, r * 0.1, r * 0.45)
+      break
+    case "bed":
+      g.fillRect(-r, -r * 0.1, r * 2, r * 0.5)
+      g.fillRect(-r, -r * 0.7, r * 0.18, r * 1.5)
+      g.fillRect(r * 0.82, r * 0.1, r * 0.18, r * 0.7)
+      g.beginPath(); g.arc(-r * 0.5, -r * 0.35, r * 0.22, 0, Math.PI * 2); g.fill()
+      break
+    case "dumbbell":
+      g.fillRect(-r * 0.6, -r * 0.1, r * 1.2, r * 0.2)
+      for (const d of [-1, 1]) { g.fillRect(d * r * 0.6 - (d > 0 ? 0 : r * 0.25), -r * 0.55, r * 0.25, r * 1.1); g.fillRect(d * r * 0.85 - (d > 0 ? 0 : r * 0.15), -r * 0.35, r * 0.15, r * 0.7) }
       break
     case "ball":
       circle()

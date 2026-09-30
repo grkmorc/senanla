@@ -372,6 +372,21 @@
       ]
     },
     {
+      "name": "rooftop-sign",
+      "type": "vibe3d:model",
+      "title": "Rooftop Sign",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/rooftop-sign.ts",
+          "target": "models/shop-kit/rooftop-sign.ts"
+        }
+      ]
+    },
+    {
       "name": "kit",
       "type": "vibe3d:kit",
       "registryDependencies": [
@@ -396,7 +411,8 @@
         "@shop-kit/football-pitch",
         "@shop-kit/playground",
         "@shop-kit/barber-pole",
-        "@shop-kit/construction-site"
+        "@shop-kit/construction-site",
+        "@shop-kit/rooftop-sign"
       ]
     }
   ]

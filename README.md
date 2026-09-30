@@ -20,7 +20,7 @@ Kaldırımda bir **seyyar simit tezgâhıyla** başlarsın. Sat, para biriktir, 
 | Esnaf Lokantası · Benzin İstasyonu · Teknoloji Mağazası | ₺20.000+ | yakında (yan dallar) |
 
 - **F** tuşu kamerayı işletmene getirir.
-- Sokaktaki boş binalar **KİRALIK · ₺fiyat** tabelası taşır; tıklayınca Esnaf yolu açılır.
+- Kariyer binaları, gelecekteki işletmenin adını sönük tabelayla taşır (üstlerinde "kiralık" yazmaz); tıklayınca Esnaf yolu açılır.
 - Soldaki **hedef kartı** bir sonraki işletme için ne kadar biriktirdiğini gösterir; para yetince parlar.
 - **Geliştir (U)** o an işlettiğin yerin geliştirmelerini gösterir: şemsiye, büyük tepsi, çırak, ikinci dolap, tabela, kasiyer… **Şehir** sekmesindekiler her işletmede geçerlidir.
 - Çırak / tezgâhtar / kasiyer gibi yardımcılar sen başka işle uğraşırken sıradakine satış yapar.
@@ -28,10 +28,10 @@ Kaldırımda bir **seyyar simit tezgâhıyla** başlarsın. Sat, para biriktir, 
 
 ### Mahalle büyüyor
 
-Sokaktaki her dükkanın bir tabelası var: **Berber** (kapısında dönen direk), **Fırın**, **Eczane** (dışa taşan
-bayrak tabela), **Kasap**, **Kahvehane**, **Terzi**. Senin basamaklarının binaları da tabelalı: sahip
-olduğun dükkan kendi renginde "Senin dükkanın" yazar, boş olanlarda **KİRALIK**, henüz gelmeyenlerde
-**SÜPERMARKET · Yakında** gibi tabelalar asılıdır. Tabelalar akşam yanar.
+Sokak iki yana uzanan ~180 m'lik bir cadde. Her dükkanın kapısının üstünde boyalı bir tabelası, **çatısında da
+iki yüzlü, gece gündüz yanan LED tabelası** var; uzaktan bile okunur: Berber (kapıda dönen direk), Fırın, Eczane,
+Kasap, Kahvehane, Terzi, Dönerci, Kuaför, Çay Ocağı, Mahalle Bankası, Pide Salonu, Mini Market, Fotoğrafçı,
+Nalbur, Optik, Kuru Temizleme… Senin işlettiğin dükkanın çatısında kendi renginde LED yanar.
 
 Yolun karşısında bir **park** var (taş meydan, banklar, ağaçlar). Günler geçtikçe mahalle gelişir;
 her yeni yer önce bir iki gün **inşaat** (tahta perde, iskelet, dönen vinç) olur, sonra açılır ve bir
@@ -41,9 +41,15 @@ haber kartı çıkar:
 | --- | --- |
 | 2 | Parka çocuk parkı (kaydırak, sallanan salıncaklar) |
 | 3 | Halı saha: ışıklı, fileli kaleler; çocuklar maç yapar, gol olunca ekranda görünür |
-| 4 | Köşedeki kiralık dükkana kırtasiye |
+| 4 | Köşedeki boş dükkana kırtasiye |
 | 5 | Karşı sırada yeni apartman, altında çiçekçi |
 | 7 | N-S caddesinde köşe kafe |
+| 9 | Batı ucunda pastane |
+| 11 | Doğu ucunda otel |
+| 13 | Doğu ucunda spor salonu |
+
+Üst çubuktaki **Mahalle (M)** panelinde açılanları, inşaattakileri ve sıradakileri görürsün; **Göster** kamerayı
+oraya uçurur. Yeni bir şey açılınca düğmede yeşil nokta yanar.
 
 Her açılış sokağa daha çok yaya ve bütün işletmelerine **%6 daha sık müşteri** getirir. Yeni yer eklemek için
 `src/game/neighbourhood.ts` içindeki `DEVELOPMENTS` listesine bir satır ekleyip `src/levels/neighbourhood.ts`
@@ -77,6 +83,7 @@ src/models/shop-kit/football-pitch.ts    # halı saha: çizgiler, fileli kaleler
 src/models/shop-kit/playground.ts        # çocuk parkı: kaydırak kulesi, sallanan salıncaklar
 src/models/shop-kit/barber-pole.ts       # dönen berber direği
 src/models/shop-kit/construction-site.ts # inşaat: perde, kat kat iskelet (floors), dönen vinç
+src/models/shop-kit/rooftop-sign.ts      # çatı tabelası kutusu (iki yüz soketi, ayaklar, payandalar)
 src/app/engine.ts                    # motor: renderer, kamera, input, oyuncu, level geçişleri
 src/app/pawn.ts                      # eklemli oyuncu/müşteri karakterleri, yürüme animasyonu
 src/app/atmosphere.ts                # gün saatine bağlı güneş, gökyüzü ve iç mekân ışığı

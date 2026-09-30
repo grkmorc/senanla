@@ -1,6 +1,7 @@
 import { createGame, type HudState } from "./engine"
 import { CATALOGUE, SHOP_TITLES, type UpgradeShop } from "@/game/upgrades"
 import { TIERS, tierById, tierIndex, type Tier, type TierId } from "@/game/career"
+import { DEVELOPMENTS, stageOf, openedCount, FOOTFALL_PER_DEV, type DevId } from "@/game/neighbourhood"
 
 const $ = (id: string) => document.getElementById(id)!
 const status = $("status")
@@ -87,6 +88,7 @@ const hud = (s: HudState) => {
   setText(els.today, tl(s.revenueToday))
   setText(els.clock, s.clock)
   setText(els.day, `${s.day}. gün · ${phase(s.dayProgress)}`)
+  hoodTick(s.day)
   els.dayFill.style.width = `${s.dayProgress * 100}%`
   els.repFill.style.width = `${(s.reputation / 5) * 100}%`
   els.rep.setAttribute("aria-label", `İtibar ${s.reputation.toFixed(1)} / 5`)
@@ -181,6 +183,60 @@ $("career-open").addEventListener("click", () => openCareer())
 $("career-close").addEventListener("click", () => career.close())
 career.addEventListener("click", (e) => { if (e.target === career) career.close() })
 $("goal").addEventListener("click", () => openCareer(hudState?.next?.id))
+
+// ---------------------------------------------------------------- neighbourhood panel
+const hood = $("hood") as HTMLDialogElement
+const hoodList = $("hood-list")
+let hoodDay = -1
+let hoodSeenDay = 1
+try { hoodSeenDay = Number(localStorage.getItem("dukkan.hood.seen") ?? "1") || 1 } catch { /* storage unavailable */ }
+
+function renderHood() {
+  const day = hudState?.day ?? 1
+  hoodDay = day
+  const opened = openedCount(day)
+  const building = DEVELOPMENTS.filter((d) => stageOf(d, day) === "building")
+  $("hood-stats").innerHTML = [
+    [`${opened}/${DEVELOPMENTS.length}`, "Açılan yer"],
+    [String(building.length), "İnşaatta"],
+    [`+%${Math.round(opened * FOOTFALL_PER_DEV * 100)}`, "Müşteri"],
+  ].map(([v, k]) => `<div><b>${v}</b><span>${k}</span></div>`).join("")
+  hoodList.innerHTML = DEVELOPMENTS.map((d) => {
+    const st = stageOf(d, day)
+    const state = st === "open" ? "done" : st === "building" ? "building" : "soon"
+    const tag = st === "open" ? `<span class="tag done">Açık</span>`
+      : st === "building" ? `<span class="tag build">İnşaatta · ${d.day}. gün</span>`
+        : `<span class="tag">${d.day}. gün</span>`
+    const color = st === "open" ? "var(--gain)" : st === "building" ? "var(--amber)" : "var(--muted)"
+    return `<li class="step" data-state="${state === "done" ? "current" : state}" style="--c:${color}">
+      <span class="ico"><svg class="i"><use href="#${d.icon}"/></svg></span>
+      <h3>${d.name} ${tag}</h3>
+      <div class="act"><button type="button" class="show" data-show="${d.id}"><svg class="i"><use href="#i-pin"/></svg>Göster</button></div>
+      <p>${d.blurb}</p>
+    </li>`
+  }).join("")
+}
+const openHood = () => {
+  renderHood()
+  if (!hood.open) hood.showModal()
+  hoodSeenDay = hudState?.day ?? 1
+  try { localStorage.setItem("dukkan.hood.seen", String(hoodSeenDay)) } catch { /* storage unavailable */ }
+  $("hood-dot").hidden = true
+}
+hoodList.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-show]")
+  if (!b) return
+  hood.close()
+  game.showDevelopment(b.dataset.show as DevId)
+})
+$("hood-open").addEventListener("click", openHood)
+$("hood-close").addEventListener("click", () => hood.close())
+hood.addEventListener("click", (e) => { if (e.target === hood) hood.close() })
+/** Called from the HUD tick: keep the panel and its "something new" dot current. */
+const hoodTick = (day: number) => {
+  if (hood.open && day !== hoodDay) renderHood()
+  $("hood-dot").hidden = !DEVELOPMENTS.some((d) => stageOf(d, day) !== stageOf(d, hoodSeenDay))
+}
 
 // ---------------------------------------------------------------- celebration
 const celebrate = $("celebrate") as HTMLDialogElement
@@ -281,6 +337,7 @@ addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase()
   if (k === "u") { e.preventDefault(); openUpgrades() }
   else if (k === "y") { e.preventDefault(); openCareer() }
+  else if (k === "m") { e.preventDefault(); openHood() }
 })
 
 // Reset with an in-page confirmation step (no browser dialogs).

@@ -5,7 +5,7 @@
  */
 import {
   WebGLRenderer, Vector2, Vector3, Raycaster, Plane, Mesh, RingGeometry, MeshBasicMaterial,
-  MeshStandardMaterial, ACESFilmicToneMapping, PCFShadowMap, SRGBColorSpace, type Object3D,
+  MeshStandardMaterial, ACESFilmicToneMapping, PCFShadowMap, SRGBColorSpace, MathUtils, type Object3D,
 } from "three"
 import { createShopKit } from "@/kits/shop-kit/context"
 import { IsoCameraRig } from "./iso-camera"
@@ -18,6 +18,7 @@ import type { Mood } from "@/game/crowd"
 import { nextTier, tierById, type Tier, type TierId } from "@/game/career"
 import type { Interactable, Level, LevelId } from "@/levels/level"
 import { createOutdoorLevel } from "@/levels/outdoor"
+import type { DevId } from "@/game/neighbourhood"
 import { createKioskLevel } from "@/levels/kiosk"
 import { createGroceryLevel } from "@/levels/grocery"
 
@@ -78,6 +79,8 @@ export interface GameHandle {
   buy(id: string): number | null
   /** Wipe the save and start over. */
   reset(): void
+  /** Fly the street camera over to a neighbourhood development. */
+  showDevelopment(id: DevId): void
   readonly debug: {
     walkTo(x: number, z: number): boolean
     interact(id: string): boolean
@@ -213,6 +216,7 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
     }
     rig.clampFocus()
     rig.snap()
+    if (lv === levels.outdoor && pendingFly) { flyTo(pendingFly); pendingFly = null }
     pipeline.setScene(lv.scene)
     pipeline.setHover([])
     lv.setDayProgress(economy.dayProgress)
@@ -220,6 +224,14 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
   }
 
   let switching = false
+  // Smooth camera flight to a spot on the street (neighbourhood panel "Göster").
+  let fly: { from: Vector3; to: Vector3; z0: number; z1: number; t: number } | null = null
+  let pendingFly: Vector3 | null = null
+  const flyTo = (to: Vector3) => {
+    rig.follow = false
+    fly = { from: rig.focus.clone(), to: to.clone().setY(0), z0: rig.zoom, z1: Math.min(rig.maxZoom, 11), t: 0 }
+  }
+
   const switchTo = (to: LevelId) => {
     if (switching || to === active.id) return
     switching = true
@@ -403,6 +415,14 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
       ;(marker.material as MeshBasicMaterial).opacity = markerT
       marker.scale.setScalar(1 + (1 - markerT) * 0.6)
     }
+    if (fly) {
+      fly.t = Math.min(1, fly.t + dt / 1.1)
+      const e = fly.t < 0.5 ? 2 * fly.t * fly.t : 1 - (-2 * fly.t + 2) ** 2 / 2
+      rig.focus.lerpVectors(fly.from, fly.to, e)
+      // Pull back mid-flight, settle in close.
+      rig.zoom = MathUtils.lerp(fly.z0, fly.z1, e) + Math.sin(e * Math.PI) * 5
+      if (fly.t >= 1) fly = null
+    }
     if (rig.follow && walkable(active)) rig.focus.lerp(new Vector3(player.root.position.x, 0, player.root.position.z), 1 - Math.exp(-dt * 5))
     rig.clampFocus()
     rig.update(dt)
@@ -518,6 +538,11 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
     advance,
     get businessLevel() { return LEVEL_OF[economy.tier] ?? null },
     buy: (id) => { const l = economy.buyUpgrade(id); if (l !== null) saveGame(economy); return l },
+    showDevelopment: (id) => {
+      const at = outdoor.locate(id)
+      if (!at) return
+      if (active !== levels.outdoor) { pendingFly = at; switchTo("outdoor") } else flyTo(at)
+    },
     reset: () => { removeEventListener("pagehide", onHide); clearSave(); location.reload() },
     dispose() {
       cancelAnimationFrame(raf)

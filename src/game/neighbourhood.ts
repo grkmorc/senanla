@@ -5,7 +5,7 @@
  * Stages are derived from the day counter, so they need no save data of their own.
  */
 
-export type DevId = "playground" | "pitch" | "stationery" | "apartment" | "cafe"
+export type DevId = "playground" | "pitch" | "stationery" | "apartment" | "cafe" | "bakery" | "hotel" | "gym"
 export type DevStage = "planned" | "building" | "open"
 
 export interface Development {
@@ -15,15 +15,30 @@ export interface Development {
   /** Days it spends as a building site before opening (default 1). */
   buildDays?: number
   name: string
+  /** One line for the neighbourhood panel. */
+  blurb: string
+  /** Icon id from the page's SVG sprite. */
+  icon: string
   news: string
 }
 
 export const DEVELOPMENTS: Development[] = [
-  { id: "playground", day: 2, name: "Çocuk parkı", news: "Parka kaydıraklı, salıncaklı bir çocuk parkı kuruldu. Aileler meydana daha sık uğruyor." },
-  { id: "pitch", day: 3, buildDays: 2, name: "Halı saha", news: "Mahalleye halı saha açıldı! Maç çıkışı simit ve su iyi gider." },
-  { id: "stationery", day: 4, name: "Kırtasiye", news: "Köşedeki kiralık dükkana kırtasiye açıldı. Okul yolu artık buradan geçiyor." },
-  { id: "apartment", day: 5, buildDays: 2, name: "Yeni apartman", news: "Karşı sıradaki apartman bitti, altına çiçekçi açıldı. Mahalleye yeni aileler taşındı." },
-  { id: "cafe", day: 7, buildDays: 2, name: "Köşe kafe", news: "Köşe başına kafe açıldı. Akşamları sokak daha kalabalık." },
+  { id: "playground", day: 2, name: "Çocuk parkı", icon: "i-tree", blurb: "Parkın köşesine kaydırak ve salıncak.",
+    news: "Parka kaydıraklı, salıncaklı bir çocuk parkı kuruldu. Aileler meydana daha sık uğruyor." },
+  { id: "pitch", day: 3, buildDays: 2, name: "Halı saha", icon: "i-ball", blurb: "Işıklı, fileli kaleli mahalle sahası.",
+    news: "Mahalleye halı saha açıldı! Maç çıkışı simit ve su iyi gider." },
+  { id: "stationery", day: 4, name: "Kırtasiye", icon: "i-sign", blurb: "Köşedeki boş dükkana kırtasiye geliyor.",
+    news: "Köşedeki boş dükkana kırtasiye açıldı. Okul yolu artık buradan geçiyor." },
+  { id: "apartment", day: 5, buildDays: 2, name: "Yeni apartman", icon: "i-city", blurb: "Karşı sırada dört katlı apartman, altında çiçekçi.",
+    news: "Karşı sıradaki apartman bitti, altına çiçekçi açıldı. Mahalleye yeni aileler taşındı." },
+  { id: "cafe", day: 7, buildDays: 2, name: "Köşe kafe", icon: "i-cup", blurb: "Büyük caddenin köşesinde kafe.",
+    news: "Köşe başına kafe açıldı. Akşamları sokak daha kalabalık." },
+  { id: "bakery", day: 9, buildDays: 2, name: "Pastane", icon: "i-cake", blurb: "Batı ucunda pastaneli yeni bina.",
+    news: "Mahalleye pastane açıldı. Sabahları kuyruk kapıya taşıyor." },
+  { id: "hotel", day: 11, buildDays: 2, name: "Otel", icon: "i-bed", blurb: "Doğu ucunda beş katlı otel.",
+    news: "Otel açıldı! Şehir dışından gelenler sokağa uğramaya başladı." },
+  { id: "gym", day: 13, buildDays: 2, name: "Spor salonu", icon: "i-dumbbell", blurb: "Doğu ucunda spor salonu.",
+    news: "Spor salonu açıldı. Antrenman çıkışı su ve simit satışları artacak." },
 ]
 
 /** Extra customers per opened development (spawn interval is divided by 1 + this × n). */

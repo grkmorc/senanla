@@ -32,13 +32,14 @@ import { Traffic, SignalController, type Lane } from "@/sim/traffic"
 import { Pedestrians, type Rect } from "@/sim/pedestrians"
 import { socketWorld } from "./interior"
 import { navFor, type Interactable, type Level, type LevelId, type WorldLabel } from "./level"
-import { NEIGHBOUR_SIGNS, tierSign, type NeighbourShop } from "./shop-signs"
-import { buildNeighbourhood, mountBuildingSign } from "./neighbourhood"
+import { NEIGHBOUR_SIGNS, neighbourLed, tierSign, tierLed, type NeighbourShop } from "./shop-signs"
+import { buildNeighbourhood, mountBuildingSign, mountRoofSign, type RoofSign } from "./neighbourhood"
+import type { DevId } from "@/game/neighbourhood"
 
 type AnyModel = ModelInstance<any, any, any>
 
 // ---------------------------------------------------------------- city layout
-const W = 110
+const W = 180
 const D = 84
 const ROAD_Z = 6.5
 const RW = 7
@@ -79,10 +80,25 @@ const FRONTAGES: Frontage[] = [
   { role: "restaurant", x: -19.5, side: "s", config: { width: 7.5, depth: 7, facade: "brick", awning: "red", upperFloors: 1 } },
   { role: "tech", x: 42.5, side: "s", config: { width: 9, depth: 8, facade: "plaster", awning: "none", upperFloors: 2 } },
   { shop: "terzi", x: 52.5, side: "s", config: { width: 8, depth: 9, facade: "brick", awning: "none", upperFloors: 3 } },
+  // The west end of the street.
+  { shop: "doner", x: -66, side: "n", config: { width: 8, depth: 7, facade: "brick", awning: "red", upperFloors: 1 } },
+  { shop: "kuafor", x: -76, side: "n", config: { width: 8, depth: 8, facade: "plaster", awning: "teal", upperFloors: 3 } },
+  { shop: "cay", x: -85, side: "n", config: { width: 6, depth: 6, facade: "plaster", awning: "amber" } },
+  { shop: "banka", x: -53, side: "s", config: { width: 9, depth: 9, facade: "plaster", awning: "none", upperFloors: 4 } },
+  { shop: "pide", x: -63.5, side: "s", config: { width: 9, depth: 8, facade: "brick", awning: "amber", upperFloors: 2 } },
+  { shop: "market", x: -74, side: "s", config: { width: 9, depth: 8, facade: "metal", awning: "none", shutter: true, upperFloors: 1 } },
+  { shop: "fotograf", x: -84.5, side: "s", config: { width: 7, depth: 7, facade: "brick", awning: "none", upperFloors: 2 } },
+  // The east end, past the crossroads.
+  { shop: "nalbur", x: 62.5, side: "n", config: { width: 8, depth: 7, facade: "metal", awning: "none", shutter: true } },
+  { shop: "optik", x: 82, side: "n", config: { width: 8, depth: 8, facade: "plaster", awning: "teal", upperFloors: 2 } },
+  { shop: "kuru", x: 62, side: "s", config: { width: 8, depth: 8, facade: "plaster", awning: "none", upperFloors: 3 } },
+  { shop: "berber", x: 82.5, side: "s", config: { width: 8, depth: 8, facade: "brick", awning: "red", upperFloors: 2 } },
 ]
 
 export interface OutdoorLevel extends Level {
   stall: CartStall
+  /** Where a neighbourhood development stands (for the camera). */
+  locate(id: DevId): Vector3 | null
 }
 
 export function createOutdoorLevel(
@@ -122,16 +138,22 @@ export function createOutdoorLevel(
 
   // Painted signs: neighbours show their trade, career buildings follow your progress.
   const signFaces: SignFace[] = []
+  const roofSigns: RoofSign[] = []
   const careerSigns = shops.map(({ f, model }) => {
     const face = mountBuildingSign(model)
     signFaces.push(face)
-    return { id: f.role!, face }
+    const roof = mountRoofSign(kit, place, model)
+    roofSigns.push(roof)
+    return { id: f.role!, face, roof }
   })
   for (const { f, model } of buildings) {
     if (!f.shop) continue
     const face = mountBuildingSign(model)
     face.set(NEIGHBOUR_SIGNS[f.shop])
     signFaces.push(face)
+    const roof = mountRoofSign(kit, place, model)
+    roof.set(neighbourLed(f.shop))
+    roofSigns.push(roof)
   }
   // A spinning pole by the barber's door, a blade sign sticking out of the pharmacy.
   const barber = buildings.find((b) => b.f.shop === "berber")!
@@ -204,13 +226,15 @@ export function createOutdoorLevel(
 
   // Street lamps along every kerb.
   const lampSpots: [number, number][] = [
-    ...[-50, -38, -29, -13.9, -3.1, 8.5, 21, 44, 55].map((x) => [x, R0 - 0.55] as [number, number]),
-    ...[-47, -36, -24, -8, 6, 20, 47].map((x) => [x, R1 + 0.55] as [number, number]),
+    ...[-86, -74, -62, -50, -38, -29, -13.9, -3.1, 8.5, 21, 44, 55, 67, 78, 88].map((x) => [x, R0 - 0.55] as [number, number]),
+    ...[-83, -71, -59, -47, -36, -24, -8, 6, 20, 47, 59, 71, 83].map((x) => [x, R1 + 0.55] as [number, number]),
     ...[-12, -24, -36].map((z) => [Q0 - 0.55, z] as [number, number]),
     ...[22, 32].map((z) => [Q1 + 0.55, z] as [number, number]),
   ]
   const lamps = lampSpots.map(([x, z]) => place(createStreetLamp(kit), x, z))
-  const lampLights = lamps.filter((_, i) => i % 2 === 0).map((l) => {
+  // Real point lights only on every other lamp near the middle of the street: each light
+  // costs every lit pixel, so the far ends make do with glowing lanterns.
+  const lampLights = lamps.filter((l, i) => i % 2 === 0 && Math.abs(l.root.position.x) < 40).map((l) => {
     const p = new PointLight("#ffd29a", 0, 10, 1.3)
     p.userData.excludeFromExport = true
     p.position.copy(l.sockets.light.anchor.position)
@@ -236,9 +260,9 @@ export function createOutdoorLevel(
   const leafMats = ["#4f7a3f", "#5d8a45", "#6b8f3a", "#48703c"].map((c) => new MeshStandardMaterial({ color: c, roughness: 0.9, flatShading: true }))
   const treeSpots: [number, number][] = []
   for (let i = 0; i < 44; i++) treeSpots.push([-15 + rng() * 39, 15 + rng() * 21])
-  for (let x = -50; x <= 20; x += 6.5) treeSpots.push([x + (rng() - 0.5) * 2, -14 - rng() * 8])
-  for (let x = 40; x <= 54; x += 6) treeSpots.push([x + (rng() - 0.5) * 2, -14 - rng() * 6])
-  for (let x = -52; x <= -14; x += 7) treeSpots.push([x + (rng() - 0.5), 26 + rng() * 6])
+  for (let x = -86; x <= 20; x += 6.5) treeSpots.push([x + (rng() - 0.5) * 2, -14 - rng() * 8])
+  for (let x = 40; x <= 86; x += 6) treeSpots.push([x + (rng() - 0.5) * 2, -14 - rng() * 6])
+  for (let x = -86; x <= -14; x += 7) treeSpots.push([x + (rng() - 0.5), 26 + rng() * 6])
   const trees: [number, number][] = []
   const plantTree = (x: number, y: number, z: number, scale: number) => {
     const t = new Group()
@@ -261,7 +285,7 @@ export function createOutdoorLevel(
   // The growing neighbourhood: park, playground, halı saha, new shops and buildings.
   const growth = buildNeighbourhood({
     kit, scene, place, eco, rng: mulberry32(99), plantTree: (x, y, z, sc) => plantTree(x, y, z, sc),
-    southEdge: S1, roadWestEdge: Q0 - SW, news, say: (m) => eco.notify.say(m),
+    northFront: NORTH_FRONT, southFront: SOUTH_FRONT, southEdge: S1, roadWestEdge: Q0 - SW, news, say: (m) => eco.notify.say(m),
     popup: (at, text) => eco.notify.popup(at, text, "info", "outdoor"),
   })
 
@@ -341,12 +365,13 @@ export function createOutdoorLevel(
     lampLights.forEach((p) => { p.intensity = k * 10 })
     lamps.forEach((l) => l.actions.setOn(t > 0.55))
     signFaces.forEach((f) => f.setGlow(k))
+    roofSigns.forEach((f) => f.setGlow(k))
     growth.setNight(k, t > 0.55)
   }
 
   // ---------------------------------------------------------------- the cart business
   // Customers step out of neighbouring doors and the street corners.
-  const origins = buildings.filter((b) => !b.f.role && b.f.side === "n").map((b) => socketWorld(b.model, "door"))
+  const origins = buildings.filter((b) => !b.f.role && b.f.side === "n" && Math.abs(b.f.x - CART.x) < 30).map((b) => socketWorld(b.model, "door"))
     .concat([new Vector3(-24, 0, 1.6), new Vector3(8, 0, 1.6), new Vector3(-2, 0, 11.5), new Vector3(-12, 0, 11.5)])
   const stall = new CartStall(eco, {
     scene, nav, entrance: new Vector3(),
@@ -376,7 +401,7 @@ export function createOutdoorLevel(
         const t = tierById(id)
         if (id === eco.tier) return `${t.name} · içeri gir`
         if (!t.ready) return `${t.name} · yakında`
-        return tierIndex(id) > tierIndex(eco.tier) ? `Kiralık · ${t.name} için ₺${t.cost.toLocaleString("tr-TR")}` : "Eski dükkanın"
+        return tierIndex(id) > tierIndex(eco.tier) ? `${t.name} · ₺${t.cost.toLocaleString("tr-TR")} ile aç` : "Eski dükkanın"
       },
       pick: model.root,
       spot: () => socketWorld(model, "door"),
@@ -400,21 +425,17 @@ export function createOutdoorLevel(
       const id = f.role!
       return {
         get text() {
-          const t = tierById(id)
-          if (id === eco.tier) return t.name.toLocaleUpperCase("tr")
-          if (!t.ready) return `YAKINDA · ${shortName(id).toLocaleUpperCase("tr")}`
-          return `KİRALIK · ₺${t.cost.toLocaleString("tr-TR")}`
+          return `SENİN DÜKKANIN · ${shortName(id).toLocaleUpperCase("tr")}`
         },
         // Above the roofline, so the painted sign board stays readable.
         at: (() => {
           const c = model.getConfig()
-          return socketWorld(model, "sign").setY(c.height + c.upperFloors * 3 + 1.1)
+          return socketWorld(model, "sign").setY(c.height + c.upperFloors * 3 + 3)
         })(),
         color: plateColor(id),
         get kind() {
-          if (id === eco.tier) return "own" as const
-          if (tierIndex(id) < tierIndex(eco.tier)) return "hidden" as const
-          return tierById(id).ready ? "rent" as const : "soon" as const
+          // Only your own shop gets a floating plate; the others speak through their signs.
+          return id === eco.tier ? "own" as const : "hidden" as const
         },
       }
     }),
@@ -426,13 +447,13 @@ export function createOutdoorLevel(
     stall.active = onCart
     if (!onCart) stall.clear()
     cart.root.visible = vendor.root.visible = crates.visible = halo.visible = onCart
-    careerSigns.forEach(({ id, face }) => face.set(tierSign(id, eco.tier)))
+    careerSigns.forEach(({ id, face, roof }) => { face.set(tierSign(id, eco.tier)); roof.set(tierLed(id, eco.tier)) })
     interactables.length = 0
     if (onCart) interactables.push(...cartThings)
     interactables.push(...shopThings.filter((it) => tierIndex(it.id as TierId) >= tierIndex(eco.tier)))
   }
   // Repaint the signs once the display font has arrived.
-  document.fonts?.ready.then(() => [...signFaces, ...growth.signs].forEach((f) => f.refresh()))
+  document.fonts?.ready.then(() => [...signFaces, ...growth.signs, ...roofSigns, ...growth.roofSigns].forEach((f) => f.refresh()))
   eco.onTierChange(applyTier)
   applyTier()
 
@@ -449,8 +470,8 @@ export function createOutdoorLevel(
     walkable: false,
     scene,
     nav,
-    bounds: { minX: -46, maxX: 50, minZ: -28, maxZ: 34 },
-    zoom: { get initial() { return eco.tier === "cart" ? 7.5 : 13 }, min: 4, max: 30 },
+    bounds: { minX: -82, maxX: 84, minZ: -28, maxZ: 34 },
+    zoom: { get initial() { return eco.tier === "cart" ? 7.5 : 13 }, min: 4, max: 38 },
     interactables,
     labels,
     groundAt,
@@ -460,6 +481,7 @@ export function createOutdoorLevel(
     },
     cameraFocus: focusFor,
     stall,
+    locate: (id) => growth.locate(id),
     update(dt) {
       haloT += dt
       const k = 0.5 + 0.5 * Math.sin(haloT * 2.6)
@@ -487,6 +509,7 @@ export function createOutdoorLevel(
     dispose() {
       growth.dispose()
       signFaces.forEach((f) => f.dispose())
+      roofSigns.forEach((f) => f.dispose())
       bladeBoard.geometry.dispose(); (bladeBoard.material as MeshStandardMaterial).dispose()
       traffic.dispose()
       people.dispose()
