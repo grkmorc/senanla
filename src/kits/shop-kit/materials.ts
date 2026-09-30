@@ -46,6 +46,10 @@ export type ShopSlot =
   | "surface.carGlass"
   | "prop.simit"
   | "surface.fridgeGlass"
+  | "surface.water"
+  | "surface.stone"
+  | "surface.stoneDark"
+  | "surface.soil"
   | "prop.bottle"
   | "surface.fridgeLight"
 
@@ -89,6 +93,10 @@ const DEFAULTS: Record<ShopSlot, SlotSpec> = {
   "signal.paint":       { color: "#e9e4d6", roughness: 0.7,  metalness: 0.0 },
   "surface.awningLight":{ color: "#efe6d2", roughness: 0.85, metalness: 0.0 },
   "signal.red":         { color: "#ff5a4a", roughness: 0.35, metalness: 0.0, emissive: "#ff2a1a", emissiveIntensity: 2.2 },
+  "surface.water":      { color: "#4f9fc2", roughness: 0.08, metalness: 0.2, emissive: "#1d4f66", emissiveIntensity: 0.35, opacity: 0.82 },
+  "surface.stone":      { color: "#cdbfa6", roughness: 0.88, metalness: 0.0 },
+  "surface.stoneDark":  { color: "#a8977c", roughness: 0.9,  metalness: 0.0 },
+  "surface.soil":       { color: "#4a3a2c", roughness: 1.0,  metalness: 0.0 },
   "surface.fridgeGlass":{ color: "#cfe6f2", roughness: 0.05, metalness: 0.1, opacity: 0.22 },
   "prop.simit":         { color: "#b8743a", roughness: 0.75, metalness: 0.0 },
   "prop.bottle":        { color: "#8fc8e8", roughness: 0.15, metalness: 0.1 },

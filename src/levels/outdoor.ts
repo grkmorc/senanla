@@ -7,6 +7,7 @@
  */
 import {
   Scene, Vector3, PointLight, Mesh, Group, CylinderGeometry, IcosahedronGeometry, BoxGeometry,
+  RingGeometry, CircleGeometry, MeshBasicMaterial,
   MeshStandardMaterial, MathUtils,
 } from "three"
 import type { ShopKit } from "@/kits/shop-kit/context"
@@ -15,6 +16,10 @@ import { createStreetBlock, ROAD_Y } from "@/models/shop-kit/street-block"
 import { createShopBuilding, type ShopBuildingConfig } from "@/models/shop-kit/shop-building"
 import { createStreetLamp } from "@/models/shop-kit/street-lamp"
 import { createStreetCart } from "@/models/shop-kit/street-cart"
+import { createPlaza } from "@/models/shop-kit/plaza"
+import { createFountain } from "@/models/shop-kit/fountain"
+import { createParkBench } from "@/models/shop-kit/park-bench"
+import { createPlanter } from "@/models/shop-kit/planter"
 import { createTrafficLight, type TrafficLight } from "@/models/shop-kit/traffic-light"
 import { Atmosphere } from "@/app/atmosphere"
 import { Pawn } from "@/app/pawn"
@@ -54,9 +59,10 @@ interface Frontage {
 
 const FRONTAGES: Frontage[] = [
   // Career businesses along the north side, smallest first.
-  { role: "kiosk", x: -12.5, side: "n", config: { width: 5.5, depth: 5.5, facade: "plaster", awning: "amber" } },
-  { role: "grocery", x: 0, side: "n", config: { width: 8.5, depth: 7, facade: "plaster", awning: "teal", upperFloors: 1 } },
-  { role: "supermarket", x: 14.5, side: "n", config: { width: 12, depth: 9, facade: "metal", awning: "none", shutter: true } },
+  // Career businesses along the north side, around Simitçi Meydanı (x -13.5 … -3.5).
+  { role: "kiosk", x: -17, side: "n", config: { width: 5.5, depth: 5.5, facade: "plaster", awning: "amber" } },
+  { role: "grocery", x: 2, side: "n", config: { width: 8.5, depth: 7, facade: "plaster", awning: "teal", upperFloors: 1 } },
+  { role: "supermarket", x: 16.5, side: "n", config: { width: 12, depth: 9, facade: "metal", awning: "none", shutter: true } },
   // Neighbours.
   { x: -24, side: "n", config: { width: 8, depth: 8, facade: "brick", awning: "none", upperFloors: 2 } },
   { x: -34.5, side: "n", config: { width: 8, depth: 7, facade: "plaster", awning: "amber", upperFloors: 1 } },
@@ -94,6 +100,7 @@ export function createOutdoorLevel(
   const groundAt = (x: number, z: number) => {
     if (Math.abs(z - ROAD_Z) < RW / 2 || Math.abs(x - CROSS_X) < RW / 2) return ROAD_Y
     if (z > S1 && (x < Q0 - SW || x > Q1 + SW)) return -0.02
+    if (x > -13.5 && x < -3.5 && z > -9 && z < 0) return 0.035 // Simitçi Meydanı paving
     return 0
   }
 
@@ -107,9 +114,24 @@ export function createOutdoorLevel(
   })
   const shops = buildings.filter((b) => b.f.role)
 
-  // The simit cart on the north sidewalk, a vendor behind it and a stack of crates.
-  const CART = new Vector3(-6.8, 0, 1.05)
+  // ---------------------------------------------------------------- Simitçi Meydanı
+  // A small paved square between the kiosk and the grocery, with the cart at its front.
+  const PLAZA = new Vector3(-8.5, 0, -4.5)
+  const FOUNTAIN = new Vector3(-8.5, 0, -5.8)
+  place(createPlaza(kit, { width: 10, depth: 9, ring: 2.15, ringZ: FOUNTAIN.z - PLAZA.z }), PLAZA.x, PLAZA.z)
+  const fountain = place(createFountain(kit, { radius: 1.5 }), FOUNTAIN.x, FOUNTAIN.z)
+  const benches = [
+    place(createParkBench(kit), -12.3, -5.6, Math.PI / 2),
+    place(createParkBench(kit), -4.7, -5.6, -Math.PI / 2),
+    place(createParkBench(kit), -8.5, -8.35),
+  ]
+  const planterSpots: [number, number][] = [[-12.7, -1.0], [-4.3, -1.0], [-12.7, -8.3], [-4.3, -8.3]]
+  const planters = planterSpots.map(([x, z]) => place(createPlanter(kit, { size: 1.0, height: 0.45 }), x, z))
+
+  // The simit cart at the front of the square, a vendor behind it and a stack of crates.
+  const CART = new Vector3(-8.5, 0, -1.3)
   const cart = place(createStreetCart(kit), CART.x, CART.z)
+  cart.root.position.y = 0.035 // stands on the plaza paving
   const vendor = new Pawn({ skin: "#e8c4a0", shirt: "#ece6da", pants: "#3a3f4a", hair: "#2a1d16", apron: "#c8553d" }, 0)
   vendor.root.position.set(CART.x, 0, CART.z - 0.78)
   scene.add(vendor.root)
@@ -124,12 +146,26 @@ export function createOutdoorLevel(
     m.castShadow = m.receiveShadow = true
     crates.add(m)
   })
-  crates.position.set(CART.x - 1.55, 0, CART.z - 0.35)
+  crates.position.set(CART.x - 1.55, 0.035, CART.z - 0.35)
   scene.add(crates)
+  vendor.root.position.y = 0.035
+
+  // A soft pulsing halo under the cart so it reads as "yours" from any zoom.
+  const haloMat = new MeshBasicMaterial({ color: "#ffb347", transparent: true, opacity: 0.5, depthWrite: false })
+  const glowMat = new MeshBasicMaterial({ color: "#ffb347", transparent: true, opacity: 0.12, depthWrite: false })
+  const halo = new Group()
+  halo.userData.excludeFromExport = true
+  const ring = new Mesh(new RingGeometry(1.35, 1.55, 48), haloMat)
+  const disc = new Mesh(new CircleGeometry(1.35, 48), glowMat)
+  ring.rotation.x = disc.rotation.x = -Math.PI / 2
+  halo.add(ring, disc)
+  halo.position.set(CART.x, 0.045, CART.z + 0.1)
+  scene.add(halo)
+  let haloT = 0
 
   // Street lamps along every kerb.
   const lampSpots: [number, number][] = [
-    ...[-50, -38, -29, -9.2, 6.3, 21, 44, 55].map((x) => [x, R0 - 0.55] as [number, number]),
+    ...[-50, -38, -29, -13.9, -3.1, 8.5, 21, 44, 55].map((x) => [x, R0 - 0.55] as [number, number]),
     ...[-47, -36, -24, -8, 6, 20, 47].map((x) => [x, R1 + 0.55] as [number, number]),
     ...[-12, -24, -36].map((z) => [Q0 - 0.55, z] as [number, number]),
     ...[22, 32].map((z) => [Q1 + 0.55, z] as [number, number]),
@@ -165,6 +201,28 @@ export function createOutdoorLevel(
   for (let x = 40; x <= 54; x += 6) treeSpots.push([x + (rng() - 0.5) * 2, -14 - rng() * 6])
   for (let x = -52; x <= -14; x += 7) treeSpots.push([x + (rng() - 0.5), 26 + rng() * 6])
   const trees: [number, number][] = []
+  const plantTree = (x: number, y: number, z: number, scale: number) => {
+    const t = new Group()
+    const trunk = new Mesh(trunkGeo, trunkMat)
+    trunk.position.y = 0.7
+    trunk.castShadow = true
+    t.add(trunk)
+    for (let i = 0; i < 3; i++) {
+      const c = new Mesh(crownGeo, leafMats[Math.floor(rng() * leafMats.length)])
+      c.position.set((rng() - 0.5) * 0.4 * scale, 1.7 * scale + i * 0.45 * scale, (rng() - 0.5) * 0.4 * scale)
+      c.scale.setScalar(scale * (0.95 - i * 0.2))
+      c.rotation.set(rng() * 3, rng() * 3, 0)
+      c.castShadow = true
+      c.receiveShadow = true
+      t.add(c)
+    }
+    t.position.set(x, y, z)
+    treeGroup.add(t)
+  }
+  for (const p of planters) {
+    const at = p.sockets.plant.anchor.getWorldPosition(new Vector3())
+    plantTree(at.x, at.y - 0.3, at.z, 0.75)
+  }
   for (const [x, z] of treeSpots) {
     const t = new Group()
     const trunk = new Mesh(trunkGeo, trunkMat)
@@ -196,7 +254,7 @@ export function createOutdoorLevel(
     [Q0, -D / 2, Q1, S0], [Q0, S1, Q1, D / 2],
   ]
   const nav = navFor(area,
-    [...buildings.map((b) => b.model), cart, ...lamps, ...heads.map((h) => h.model)].map((m) => m.root).concat(crates), 0.26, 0.35,
+    [...buildings.map((b) => b.model), cart, fountain, ...benches, ...planters, ...lamps, ...heads.map((h) => h.model)].map((m) => m.root).concat(crates), 0.26, 0.35,
     [...roadBlocks, ...trees.map(([x, z]) => [x - 0.2, z - 0.2, x + 0.2, z + 0.2] as [number, number, number, number])])
 
   const walkways: Rect[] = [
@@ -207,6 +265,7 @@ export function createOutdoorLevel(
     [Q0 - SW + 0.3, S1, Q0 - 0.45, D / 2 - 1],
     [Q1 + 0.45, S1, Q1 + SW - 0.3, D / 2 - 1],
     [-10, 15, 20, 30], // park
+    [-13, -8.8, -4, -0.6], // Simitçi Meydanı
   ]
   const people = new Pedestrians(scene, nav, walkways, rng, 22, groundAt)
 
@@ -280,7 +339,12 @@ export function createOutdoorLevel(
   })
   const plateColor = (id: TierId) => TIERS.find((t) => t.id === id)!.color
   const labels: WorldLabel[] = [
-    { get text() { return "SİMİT" }, at: CART.clone().setY(1.85), color: plateColor("cart"), get kind() { return eco.tier === "cart" ? "own" as const : "hidden" as const } },
+    {
+      get text() { return stall.queueLength ? `SİMİT TEZGÂHIN · ${stall.queueLength} müşteri` : "SİMİT TEZGÂHIN" },
+      at: CART.clone().setY(3.15), color: plateColor("cart"),
+      get kind() { return eco.tier === "cart" ? "main" as const : "hidden" as const },
+      get alert() { return stall.queueLength > 0 },
+    },
     ...shops.map(({ f, model }): WorldLabel => {
       const id = f.role!
       return {
@@ -306,7 +370,7 @@ export function createOutdoorLevel(
     const onCart = eco.tier === "cart"
     stall.active = onCart
     if (!onCart) stall.clear()
-    cart.root.visible = vendor.root.visible = crates.visible = onCart
+    cart.root.visible = vendor.root.visible = crates.visible = halo.visible = onCart
     interactables.length = 0
     if (onCart) interactables.push(...cartThings)
     interactables.push(...shopThings.filter((it) => tierIndex(it.id as TierId) >= tierIndex(eco.tier)))
@@ -316,7 +380,7 @@ export function createOutdoorLevel(
 
   const focusFor = (from: LevelId | null) => {
     const id: TierId = from === "kiosk" ? "kiosk" : from === "grocery" ? "grocery" : eco.tier
-    if (id === "cart") return CART.clone().setZ(3)
+    if (id === "cart") return CART.clone().setZ(CART.z + 1.8)
     const b = shops.find((s) => s.f.role === id)
     return new Vector3(b ? b.f.x : 0, 0, 3)
   }
@@ -328,7 +392,7 @@ export function createOutdoorLevel(
     scene,
     nav,
     bounds: { minX: -46, maxX: 50, minZ: -28, maxZ: 34 },
-    zoom: { initial: 13, min: 5, max: 30 },
+    zoom: { get initial() { return eco.tier === "cart" ? 7.5 : 13 }, min: 4, max: 30 },
     interactables,
     labels,
     groundAt,
@@ -339,6 +403,10 @@ export function createOutdoorLevel(
     cameraFocus: focusFor,
     stall,
     update(dt) {
+      haloT += dt
+      const k = 0.5 + 0.5 * Math.sin(haloT * 2.6)
+      ring.scale.setScalar(1 + k * 0.08)
+      haloMat.opacity = 0.35 + k * 0.35
       stall.update(dt)
       vendor.update(dt)
       signals.update(dt)
@@ -357,6 +425,7 @@ export function createOutdoorLevel(
       stall.dispose()
       vendor.dispose()
       crateGeo.dispose(); crateMat.dispose()
+      ring.geometry.dispose(); disc.geometry.dispose(); haloMat.dispose(); glowMat.dispose()
       models.forEach((m) => m.dispose())
       atmosphere.dispose()
       trunkGeo.dispose(); crownGeo.dispose(); trunkMat.dispose()

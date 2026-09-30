@@ -334,7 +334,14 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
     const k = e.key.toLowerCase()
     if (k === "q") rig.rotateStep(-1)
     else if (k === "e") rig.rotateStep(1)
-    else if (k === "f" || k === " ") { rig.follow = true }
+    else if (k === "f" || k === " ") {
+      if (walkable(active)) rig.follow = true
+      else {
+        // On the street, jump back to your business.
+        const f = active.cameraFocus?.(null)
+        if (f) { rig.focus.set(f.x, 0, f.z); rig.zoom = active.zoom.initial; rig.clampFocus() }
+      }
+    }
     else if (k === "c") { rig.follow = !rig.follow; ui.say(rig.follow ? "Takip açık" : "Serbest kamera") }
     else if (k === "escape" && active.id !== "outdoor") switchTo("outdoor")
     else if (k === "g") {
@@ -412,6 +419,8 @@ export function createGame(container: HTMLElement, ui: GameUi): GameHandle {
       const text = l.text
       if (n.textContent !== text) n.textContent = text
       if (n.dataset.kind !== kind) n.dataset.kind = kind
+      const alert = String(!!l.alert)
+      if (n.dataset.alert !== alert) n.dataset.alert = alert
       n.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`
     })
 

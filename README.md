@@ -13,12 +13,13 @@ Kaldırımda bir **seyyar simit tezgâhıyla** başlarsın. Sat, para biriktir, 
 
 | Basamak | Açılış | Nasıl oynanır |
 | --- | --- | --- |
-| **Seyyar Tezgâh** | başlangıç | Komşu binalardan çıkan müşteriler tezgâha gelip sıraya girer. Tezgâha tıkla, sat. Simit azalınca kasalara tıklayıp mal al. |
+| **Seyyar Tezgâh** | başlangıç | Tezgâhın **Simitçi Meydanı**'nın önünde, kırmızı bayrağı ve ışık halkasıyla durur. Komşu binalardan çıkan müşteriler gelip sıraya girer. Tezgâha tıkla, sat. Simit azalınca kasalara tıklayıp mal al. |
 | **Küçük Büfe** | ₺500 | İlk dükkanın. Müşteri içeri girer, dolaptan ve raftan alır, kasada sıraya girer. |
 | **Mahalle Bakkalı** | ₺2.000 | Raflar dolusu ürün, daha çok müşteri, daha yüksek sepet. |
 | Süpermarket | ₺12.000 | yakında |
 | Esnaf Lokantası · Benzin İstasyonu · Teknoloji Mağazası | ₺20.000+ | yakında (yan dallar) |
 
+- **F** tuşu kamerayı işletmene getirir.
 - Sokaktaki boş binalar **KİRALIK · ₺fiyat** tabelası taşır; tıklayınca Esnaf yolu açılır.
 - Soldaki **hedef kartı** bir sonraki işletme için ne kadar biriktirdiğini gösterir; para yetince parlar.
 - **Geliştir (U)** o an işlettiğin yerin geliştirmelerini gösterir: şemsiye, büyük tepsi, çırak, ikinci dolap, tabela, kasiyer… **Şehir** sekmesindekiler her işletmede geçerlidir.
@@ -45,6 +46,10 @@ src/models/shop-kit/car.ts               # araba: sedan/hatch/minibüs/taksi, d�
 src/models/shop-kit/traffic-light.ts     # trafik ışığı, action: setSignal (yaya lambası dahil)
 src/models/shop-kit/street-cart.ts       # seyyar simit tezgâhı: stok, tepsi katı, şemsiye
 src/models/shop-kit/drinks-fridge.ts     # cam kapılı içecek dolabı: stok
+src/models/shop-kit/plaza.ts             # taş döşeli meydan, bordür ve halka süsü
+src/models/shop-kit/fountain.ts          # sekizgen havuz, hareketli su
+src/models/shop-kit/park-bench.ts        # ahşap bank
+src/models/shop-kit/planter.ts           # taş saksı (ağaç soketi)
 src/app/engine.ts                    # motor: renderer, kamera, input, oyuncu, level geçişleri
 src/app/pawn.ts                      # eklemli oyuncu/müşteri karakterleri, yürüme animasyonu
 src/app/atmosphere.ts                # gün saatine bağlı güneş, gökyüzü ve iç mekân ışığı

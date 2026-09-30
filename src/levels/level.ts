@@ -27,8 +27,10 @@ export interface WorldLabel {
   at: Vector3
   /** Accent for the name plate dot (CSS colour). */
   readonly color?: string
-  /** Plate style: your business, a place for rent, or not open yet. */
-  readonly kind?: "own" | "rent" | "soon" | "hidden"
+  /** Plate style: your business (main = the one you run on the street), for rent, not open yet. */
+  readonly kind?: "main" | "own" | "rent" | "soon" | "hidden"
+  /** Draw attention (bouncing marker), e.g. customers waiting. */
+  readonly alert?: boolean
 }
 
 export interface LevelContext {

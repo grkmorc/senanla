@@ -19,6 +19,10 @@ import { createModel as car } from "@/models/shop-kit/car"
 import { createModel as tlight } from "@/models/shop-kit/traffic-light"
 import { createModel as cart } from "@/models/shop-kit/street-cart"
 import { createModel as fridge } from "@/models/shop-kit/drinks-fridge"
+import { createModel as plaza } from "@/models/shop-kit/plaza"
+import { createModel as fountain } from "@/models/shop-kit/fountain"
+import { createModel as parkBench } from "@/models/shop-kit/park-bench"
+import { createModel as planter } from "@/models/shop-kit/planter"
 
 const factories: Record<string, (k: ReturnType<typeof createShopKit>) => { root: Object3D; dispose(): void }> = {
   "shop-floor": (k) => floor(k, { width: 6, depth: 5 }),
@@ -42,6 +46,10 @@ const factories: Record<string, (k: ReturnType<typeof createShopKit>) => { root:
   "street-cart": (k) => cart(k),
   "street-cart-full": (k) => cart(k, { umbrella: true, tray: 3 }),
   "drinks-fridge": (k) => fridge(k),
+  "plaza": (k) => plaza(k, { width: 6, depth: 5 }),
+  "fountain": (k) => fountain(k),
+  "park-bench": (k) => parkBench(k),
+  "planter": (k) => planter(k),
   "drinks-fridge-wide": (k) => fridge(k, { width: 1.6, stock: 0.6, brand: "blue" }),
 }
 

@@ -12,6 +12,8 @@ export interface StreetCartConfig {
   stock: number
   umbrella: boolean
   tray: 1 | 2 | 3
+  /** Tall pennant so the cart reads from across the street. */
+  flag: boolean
 }
 
 const W = 1.3
@@ -24,14 +26,15 @@ export const streetCartDefinition: ModelDefinition<StreetCartConfig> = {
   title: "Street Cart",
   description: "Two-wheeled simit cart with a glazed display case, handles and an optional umbrella.",
   categories: ["props", "street", "retail"],
-  defaults: { stock: 1, umbrella: false, tray: 1 },
+  defaults: { stock: 1, umbrella: false, tray: 1, flag: true },
   fields: {
     stock: { type: "number", min: 0, max: 1, step: 0.05, doc: "How full the display case is." },
     umbrella: { type: "boolean", doc: "Sun umbrella over the cart." },
     tray: { type: "integer", min: 1, max: 3, step: 1, unit: "count", doc: "Display tiers (bigger tray upgrades)." },
+    flag: { type: "boolean", doc: "Tall pennant on a pole at the front corner." },
   },
   materialSlots: ["body", "trim", "frame", "glass", "simit", "bottle", "cap", "tyre", "hub", "canopy", "canopyAlt"],
-  parts: ["body", "wheels", "case", "goods", "umbrella"],
+  parts: ["body", "wheels", "case", "goods", "umbrella", "flag"],
   sockets: ["customer", "vendor", "sign"],
   actions: [],
   envelope: (c) => ({ width: c.umbrella ? 2.2 : 1.9, depth: c.umbrella ? 2.2 : 1.5, height: c.umbrella ? 2.4 : 1.6 }),
@@ -107,6 +110,18 @@ const spec: ShopModelSpec<StreetCartConfig, Record<string, never>> = {
       b.cylinder("goods", "cap", `cap-${i}`, 0.018, 0.03, [x, BODY_Y1 + 0.245, hd + 0.07], { segments: 8 })
     }
     b.span("goods", "frame", "bottle-ledge", [-hw + 0.08, BODY_Y1 - 0.04, hd + 0.012], [hw - 0.08, BODY_Y1 + 0.029, hd + 0.13])
+
+    if (c.flag) {
+      // Pole at the front-left corner, pennant flying towards -X.
+      const px = -hw + 0.1
+      const pz = hd - 0.1
+      const top = 2.75
+      b.cylinder("flag", "frame", "flag-pole", 0.02, top - BODY_Y1 - 0.015, [px, BODY_Y1 + 0.015 + (top - BODY_Y1 - 0.015) / 2, pz], { segments: 8 })
+      b.cylinder("flag", "frame", "flag-knob", 0.035, 0.05, [px, top + 0.025, pz], { segments: 10 })
+      b.span("flag", "canopy", "pennant", [px - 0.02 - 0.75, top - 0.52, pz - 0.006], [px - 0.02, top - 0.05, pz + 0.006])
+      b.span("flag", "canopyAlt", "pennant-band", [px - 0.02 - 0.75, top - 0.34, pz + 0.006], [px - 0.02, top - 0.23, pz + 0.012])
+      b.span("flag", "canopyAlt", "pennant-band-b", [px - 0.02 - 0.75, top - 0.34, pz - 0.012], [px - 0.02, top - 0.23, pz - 0.006])
+    }
 
     if (c.umbrella) {
       const top = 2.3

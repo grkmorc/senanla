@@ -116,6 +116,13 @@
     .sign { position:absolute; left:0; top:0; display:flex; align-items:center; gap:7px; padding:5px 11px 5px 9px; border-radius:999px;
       background:rgba(20,19,18,.82); border:1px solid rgba(255,220,170,.22); font:700 12px/1 var(--display); letter-spacing:.14em;
       color:#fbeed6; white-space:nowrap; pointer-events:none; box-shadow:0 4px 14px rgba(0,0,0,.35); }
+    .sign[data-kind="main"] { padding:8px 14px 8px 11px; font-size:14px; letter-spacing:.12em; color:#fff4e2;
+      background:linear-gradient(180deg, #c8553d, #a33f2c); border-color:rgba(255,220,180,.55);
+      box-shadow:0 6px 18px rgba(0,0,0,.45), 0 0 22px rgba(224,99,78,.45); }
+    .sign[data-kind="main"]::before { background:#ffe2a8; box-shadow:0 0 10px #ffe2a8; }
+    .sign[data-kind="main"]::after { content:""; position:absolute; left:50%; top:100%; margin-left:-7px; border:7px solid transparent; border-top-color:#a33f2c; }
+    .sign[data-alert="true"] { animation:nudge 1s ease-in-out infinite; }
+    @keyframes nudge { 50% { margin-top:-6px; } }
     .sign[data-kind="rent"] { background:rgba(20,19,18,.72); border-style:dashed; border-color:rgba(255,200,120,.45); color:#ffd9a0; font-size:11px; }
     .sign[data-kind="soon"] { background:rgba(20,19,18,.6); border-color:rgba(241,235,223,.12); color:var(--muted); font-size:10.5px; }
     .sign[data-kind="soon"]::before { background:var(--faint); box-shadow:none; }

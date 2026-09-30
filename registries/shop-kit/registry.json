@@ -252,6 +252,66 @@
       ]
     },
     {
+      "name": "plaza",
+      "type": "vibe3d:model",
+      "title": "Plaza Paving",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/plaza.ts",
+          "target": "models/shop-kit/plaza.ts"
+        }
+      ]
+    },
+    {
+      "name": "fountain",
+      "type": "vibe3d:model",
+      "title": "Fountain",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/fountain.ts",
+          "target": "models/shop-kit/fountain.ts"
+        }
+      ]
+    },
+    {
+      "name": "park-bench",
+      "type": "vibe3d:model",
+      "title": "Park Bench",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/park-bench.ts",
+          "target": "models/shop-kit/park-bench.ts"
+        }
+      ]
+    },
+    {
+      "name": "planter",
+      "type": "vibe3d:model",
+      "title": "Planter",
+      "registryDependencies": [
+        "@shop-kit/core",
+        "@shop-kit/materials"
+      ],
+      "files": [
+        {
+          "path": "src/models/shop-kit/planter.ts",
+          "target": "models/shop-kit/planter.ts"
+        }
+      ]
+    },
+    {
       "name": "kit",
       "type": "vibe3d:kit",
       "registryDependencies": [
@@ -268,7 +328,11 @@
         "@shop-kit/car",
         "@shop-kit/traffic-light",
         "@shop-kit/street-cart",
-        "@shop-kit/drinks-fridge"
+        "@shop-kit/drinks-fridge",
+        "@shop-kit/plaza",
+        "@shop-kit/fountain",
+        "@shop-kit/park-bench",
+        "@shop-kit/planter"
       ]
     }
   ]
